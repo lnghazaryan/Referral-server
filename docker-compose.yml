@@ -1,0 +1,15 @@
+services:
+  api:
+    build: .
+    ports:
+      - "${PORT:-4000}:4000"
+    # Load vars into the container process (migrate + app).
+    env_file:
+      - .env
+    # Also mount so dotenv can read the same file from /app/.env.
+    volumes:
+      - ./.env:/app/.env:ro
+    environment:
+      PORT: 4000
+      RUN_MIGRATIONS: "${RUN_MIGRATIONS:-true}"
+    restart: unless-stopped
