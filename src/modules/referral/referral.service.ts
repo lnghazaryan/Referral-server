@@ -62,7 +62,10 @@ export class ReferralService {
       .where(eq(referrals.email, dto.email))
       .limit(1);
     if (existingByEmail) {
-      throw new ConflictException("Referral email already exists.");
+      this.logger.log(
+        `registerReferral: referral already exists referralId=${existingByEmail.referralId} email=${dto.email}`
+      );
+      return existingByEmail;
     }
 
     const referralCode = await this.generateUniqueReferralCode();
