@@ -1539,10 +1539,39 @@ export class AdminUiController {
 
       function renderEventsCatalog(data) {
         catalogCache = Array.isArray(data) ? data : [];
-        applyCatalogFilter();
+        applyCatalogFilter({ skipSync: true });
       }
 
-      function applyCatalogFilter() {
+      // Keep selections in catalogCache so search/filter is UI-only.
+      // Checkboxes that leave the DOM on filter must not lose their state.
+      function syncCatalogSelectionsFromDom() {
+        const byId = {};
+        catalogCache.forEach(function (item) {
+          byId[item.eventId] = item;
+        });
+        document
+          .querySelectorAll('#eventsCatalogRows input[type="checkbox"]')
+          .forEach(function (checkbox) {
+            const eventId = checkbox.getAttribute("data-event-id");
+            if (eventId && byId[eventId]) {
+              byId[eventId].isSelected = checkbox.checked;
+            }
+          });
+      }
+
+      function setCatalogSelection(eventId, isSelected) {
+        const item = catalogCache.find(function (row) {
+          return row.eventId === eventId;
+        });
+        if (item) {
+          item.isSelected = isSelected;
+        }
+      }
+
+      function applyCatalogFilter(options) {
+        if (!options || !options.skipSync) {
+          syncCatalogSelectionsFromDom();
+        }
         const input = document.getElementById("eventsCatalogSearch");
         const query = input ? input.value.trim() : "";
         const rows = catalogCache.filter(function (item) {
@@ -1592,18 +1621,33 @@ export class AdminUiController {
           .join("");
       }
 
+      function onCatalogCheckboxChange(event) {
+        const checkbox = event.target;
+        if (
+          !checkbox ||
+          checkbox.type !== "checkbox" ||
+          !checkbox.getAttribute("data-event-id")
+        ) {
+          return;
+        }
+        setCatalogSelection(
+          checkbox.getAttribute("data-event-id"),
+          checkbox.checked
+        );
+      }
+
       async function saveEventsCatalog() {
         if (!currentUser || currentUser.role !== "Admin") {
           setStatus(false, "Only Admin can save events.");
           return;
         }
-        const selectedEventIds = [];
-        document
-          .querySelectorAll('#eventsCatalogRows input[type="checkbox"]')
-          .forEach(function (checkbox) {
-            if (checkbox.checked) {
-              selectedEventIds.push(checkbox.getAttribute("data-event-id"));
-            }
+        syncCatalogSelectionsFromDom();
+        const selectedEventIds = catalogCache
+          .filter(function (item) {
+            return item.isSelected;
+          })
+          .map(function (item) {
+            return item.eventId;
           });
         try {
           await request("POST", "/admin/events/sync", {
@@ -2135,6 +2179,13 @@ export class AdminUiController {
           listUsers();
         }
       }
+
+      (function bindCatalogSelectionHandlers() {
+        const catalogRows = document.getElementById("eventsCatalogRows");
+        if (catalogRows) {
+          catalogRows.addEventListener("change", onCatalogCheckboxChange);
+        }
+      })();
 
       (async function bootstrap() {
         await me();
