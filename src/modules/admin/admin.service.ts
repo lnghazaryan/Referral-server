@@ -16,7 +16,7 @@ import { CreateEventDto } from "./dto/create-event.dto";
 import { SyncEventsDto } from "./dto/sync-events.dto";
 import { events, promos, referred } from "../../db/schema";
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { eq, inArray, lte } from "drizzle-orm";
+import { eq, inArray, lte, notInArray } from "drizzle-orm";
 
 @Injectable()
 export class AdminService {
@@ -37,6 +37,11 @@ export class AdminService {
     const upcomingCatalog = catalog.filter(
       (item) => !isEventDatePast(item.eventDateTime, now)
     );
+    const catalogIds = upcomingCatalog.map((item) => item.eventId);
+
+    // Drop saved events that EventHub no longer returns as upcoming
+    await this.removeEventsAbsentFromCatalog(catalogIds);
+
     const localEvents = await this.databaseService.db
       .select({ eventId: events.eventId })
       .from(events);
@@ -71,8 +76,14 @@ export class AdminService {
     const selectedIds = new Set(
       dto.selectedEventIds.filter((eventId) => catalogIds.includes(eventId))
     );
-    const idsToRemove = catalog
+
+    // Remove deselected events and any DB rows no longer in the catalog
+    const localEvents = await this.databaseService.db
+      .select({ eventId: events.eventId })
+      .from(events);
+    const idsToRemove = localEvents
       .map((item) => item.eventId)
+      .filter((eventId): eventId is string => Boolean(eventId))
       .filter((eventId) => !selectedIds.has(eventId));
 
     if (idsToRemove.length > 0) {
@@ -144,6 +155,17 @@ export class AdminService {
     await this.databaseService.db
       .delete(events)
       .where(lte(events.date, now));
+  }
+
+  private async removeEventsAbsentFromCatalog(catalogEventIds: string[]) {
+    if (catalogEventIds.length === 0) {
+      await this.databaseService.db.delete(events);
+      return;
+    }
+
+    await this.databaseService.db
+      .delete(events)
+      .where(notInArray(events.eventId, catalogEventIds));
   }
 
   async listPromos() {

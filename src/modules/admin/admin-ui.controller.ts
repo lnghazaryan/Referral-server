@@ -1531,6 +1531,7 @@ export class AdminUiController {
         try {
           const data = await request("GET", "/admin/events/catalog");
           renderEventsCatalog(data);
+          await listItems("events");
           setStatus(true, "EventHub events loaded");
         } catch (e) {
           setStatus(false, String(e));
