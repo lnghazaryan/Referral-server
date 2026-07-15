@@ -2016,17 +2016,18 @@ export class AdminUiController {
             {
               key: "promo.discountType",
               label: "Discount type",
-              help: "e.g. PERCENT or FIXED — must match EventHub API values."
+              help: "e.g. Percent or Fixed — mapped to Promo API unit."
             },
             {
               key: "promo.discountValue",
               label: "Discount value",
-              help: "Percentage or fixed amount depending on type.",
+              help: "Sent as discount in Promo API.",
               type: "number"
             },
             {
               key: "promo.maxCount",
               label: "Max uses per code",
+              help: "Sent as count in Promo API.",
               type: "number"
             },
             {

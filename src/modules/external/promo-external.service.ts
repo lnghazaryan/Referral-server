@@ -6,7 +6,6 @@ import {
 import { filterValidGuids } from "../../common/utils/guid";
 import { SettingsService } from "../settings/settings.service";
 import { PromoApiClient } from "./promo/promo-api.client";
-import { PROMO_PARTNER_ID } from "./promo/promo.config";
 
 export type ExternalPromoResponse = {
   promoId: number | null;
@@ -21,15 +20,10 @@ export type CreateExternalPromoInput = {
 };
 
 type PromoCreateRequest = {
-  codes: string[];
-  discountType: string;
-  discountValue: number;
-  events: string[];
-  partners: string[];
-  startDate: string;
-  endDate: string;
-  maxCount: number;
-  isActive: boolean;
+  code: string;
+  unit: string;
+  discount: number;
+  count: number;
 };
 
 @Injectable()
@@ -59,33 +53,50 @@ export class PromoExternalService {
 
     const promo = this.settingsService.getPromoSettings();
     const code = input.code ?? this.generatePromoCode();
-    const startDate = new Date();
+    const unit = this.mapDiscountUnit(promo.discountType);
     const endDate = new Date(
       Date.now() + promo.validityDays * 24 * 60 * 60 * 1000
     );
 
     const body: PromoCreateRequest = {
-      codes: [code],
-      discountType: String(promo.discountType).toUpperCase(),
-      discountValue: promo.discountValue,
-      events: eventIds,
-      partners: [PROMO_PARTNER_ID],
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      maxCount: promo.maxCount,
-      isActive: true
+      code,
+      unit,
+      discount: promo.discountValue,
+      count: promo.maxCount
     };
 
     this.logger.log(
-      `createPromo: POST /Promo/v2/Create ${JSON.stringify(body)}`
+      `createPromo: same code=${code} for ${eventIds.length} event(s) body=${JSON.stringify(body)}`
     );
 
-    await this.promoApiClient.post("/Promo/v2/Create", body);
+    // One authorize for the whole batch, then create per event.
+    const accessToken = await this.promoApiClient.authorize();
+    const authHeaders = { Authorization: `Bearer ${accessToken}` };
+
+    for (const eventId of eventIds) {
+      const path = `/Promo/Create/${eventId}`;
+      this.logger.log(
+        `createPromo: POST ${path} ${JSON.stringify(body)}`
+      );
+
+      const response = await this.promoApiClient.post(path, body, {
+        skipAuth: true,
+        headers: authHeaders
+      });
+
+      this.logger.log(
+        `createPromo: response for eventId=${eventId} ${JSON.stringify(response ?? null)}`
+      );
+    }
+
+    this.logger.log(
+      `createPromo: done code=${code} events=${eventIds.length}`
+    );
 
     return {
       promoId: null,
       code,
-      type: promo.discountType,
+      type: unit,
       expiredAt: endDate.toISOString()
     };
   }
@@ -93,6 +104,24 @@ export class PromoExternalService {
   /** @deprecated use createPromo */
   async fetchPromoCode(eventId: string): Promise<ExternalPromoResponse> {
     return this.createPromo({ eventIds: [eventId] });
+  }
+
+  private mapDiscountUnit(discountType: string): string {
+    const normalized = String(discountType || "")
+      .trim()
+      .toLowerCase();
+
+    if (normalized === "percent" || normalized === "percentage") {
+      return "Percent";
+    }
+
+    if (normalized === "fixed" || normalized === "amount") {
+      return "Fixed";
+    }
+
+    // Fall back to settings value with leading capital (EventHub expects "Percent").
+    const raw = String(discountType || "Percent").trim();
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   }
 
   private generatePromoCode(): string {
