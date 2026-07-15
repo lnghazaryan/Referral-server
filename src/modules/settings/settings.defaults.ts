@@ -20,7 +20,7 @@ export const SETTINGS_KEY = "global";
 
 export const DEFAULT_SETTINGS: AppSettings = {
   promo: {
-    discountType: "Percent",
+    discountType: "PERCENT",
     discountValue: 10,
     maxCount: 1,
     validityDays: 30

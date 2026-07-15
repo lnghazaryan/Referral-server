@@ -1,9 +1,13 @@
 import { env } from "../../../config/env";
 
 const PROMO_BASE_URLS = {
-  test: "https://promo.apitest.eventhub.am",
-  live: "https://promo.api.eventhub.am"
+  test: "https://organizer.api.test.eventhub.am",
+  live: "https://organizer.api.eventhub.am"
 } as const;
+
+/** Fixed EventHub partner used for all referral promo codes. */
+export const PROMO_PARTNER_ID =
+  env.EVENTHUB_PROMO_PARTNER_ID || "5a82a51d-5ca8-442b-36ef-08dc809d7fb7";
 
 export function getPromoApiBaseUrl(): string {
   if (env.EVENTHUB_PROMO_API_BASE_URL) {

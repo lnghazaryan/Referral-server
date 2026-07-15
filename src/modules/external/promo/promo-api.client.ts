@@ -9,6 +9,17 @@ import { getPromoApiBaseUrl } from "./promo.config";
 type RequestOptions = {
   query?: Record<string, string | number | undefined>;
   headers?: Record<string, string>;
+  skipAuth?: boolean;
+};
+
+type PartnerToken = {
+  token: string;
+  expiration: string;
+};
+
+type PartnerAuthorizeResponse = {
+  accessToken: PartnerToken;
+  refreshToken: PartnerToken;
 };
 
 @Injectable()
@@ -40,6 +51,34 @@ export class PromoApiClient {
     return this.request<T>("POST", path, body, options);
   }
 
+  /** Authorize as partner before each authenticated Promo API call. */
+  async authorize(): Promise<string> {
+    const username = env.EVENTHUB_ORGANIZER_USERNAME;
+    const password = env.EVENTHUB_ORGANIZER_PASSWORD;
+
+    if (!username || !password) {
+      throw new ServiceUnavailableException(
+        "Organizer Promo API credentials are not configured."
+      );
+    }
+
+    const response = await this.request<PartnerAuthorizeResponse>(
+      "POST",
+      "/partner/authorize",
+      { username, password },
+      { skipAuth: true }
+    );
+
+    const token = response?.accessToken?.token;
+    if (!token) {
+      throw new BadGatewayException(
+        "Promo API /partner/authorize did not return an access token."
+      );
+    }
+
+    return token;
+  }
+
   private async request<T>(
     method: "GET" | "POST" | "PUT",
     path: string,
@@ -53,8 +92,9 @@ export class PromoApiClient {
       ...options.headers
     };
 
-    if (env.EVENTHUB_PROMO_API_KEY) {
-      headers["x-api-key"] = env.EVENTHUB_PROMO_API_KEY;
+    if (!options.skipAuth) {
+      const accessToken = await this.authorize();
+      headers.Authorization = `Bearer ${accessToken}`;
     }
 
     let response: Response;

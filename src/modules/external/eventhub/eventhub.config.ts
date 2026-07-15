@@ -1,7 +1,7 @@
 import { env } from "../../../config/env";
 
 const EVENTHUB_BASE_URLS = {
-  test: "https://website.api.eventhub.am",
+  test: "https://website.api.test.eventhub.am",
   live: "https://website.api.eventhub.am"
 } as const;
 

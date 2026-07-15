@@ -11,7 +11,7 @@ import {
 } from "class-validator";
 
 class PromoSettingsDto {
-  @ApiPropertyOptional({ example: "Percent" })
+  @ApiPropertyOptional({ example: "PERCENT" })
   @IsOptional()
   @IsString()
   @MinLength(1)

@@ -1,10 +1,12 @@
 import {
   BadRequestException,
-  Injectable
+  Injectable,
+  Logger
 } from "@nestjs/common";
 import { filterValidGuids } from "../../common/utils/guid";
 import { SettingsService } from "../settings/settings.service";
 import { PromoApiClient } from "./promo/promo-api.client";
+import { PROMO_PARTNER_ID } from "./promo/promo.config";
 
 export type ExternalPromoResponse = {
   promoId: number | null;
@@ -22,18 +24,18 @@ type PromoCreateRequest = {
   codes: string[];
   discountType: string;
   discountValue: number;
-  categories: number[];
   events: string[];
   partners: string[];
   startDate: string;
   endDate: string;
   maxCount: number;
   isActive: boolean;
-  createdBy: string;
 };
 
 @Injectable()
 export class PromoExternalService {
+  private readonly logger = new Logger(PromoExternalService.name);
+
   constructor(
     private readonly promoApiClient: PromoApiClient,
     private readonly settingsService: SettingsService
@@ -64,19 +66,21 @@ export class PromoExternalService {
 
     const body: PromoCreateRequest = {
       codes: [code],
-      discountType: promo.discountType,
+      discountType: String(promo.discountType).toUpperCase(),
       discountValue: promo.discountValue,
-      categories: [],
       events: eventIds,
-      partners: [],
+      partners: [PROMO_PARTNER_ID],
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       maxCount: promo.maxCount,
-      isActive: true,
-      createdBy: "referral-server",
+      isActive: true
     };
 
-    await this.promoApiClient.post("/Promo/Create", body);
+    this.logger.log(
+      `createPromo: POST /Promo/v2/Create ${JSON.stringify(body)}`
+    );
+
+    await this.promoApiClient.post("/Promo/v2/Create", body);
 
     return {
       promoId: null,
@@ -106,22 +110,5 @@ export class PromoExternalService {
     }
 
     return chars.join("");
-  }
-
-  private createDevPromo(
-    eventId: string,
-    code?: string
-  ): ExternalPromoResponse {
-    const promo = this.settingsService.getPromoSettings();
-    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
-    const numericSeed = eventId.replace(/\D/g, "").slice(-5) || "10001";
-    return {
-      promoId: Number(`${numericSeed}${Date.now().toString().slice(-5)}`),
-      code: code ?? `DEV-${suffix}`,
-      type: promo.discountType,
-      expiredAt: new Date(
-        Date.now() + promo.validityDays * 24 * 60 * 60 * 1000
-      ).toISOString()
-    };
   }
 }

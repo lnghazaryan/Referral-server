@@ -2011,12 +2011,12 @@ export class AdminUiController {
       const SETTINGS_SCHEMA = [
         {
           group: "Promo settings",
-          help: "Used when creating referral promo codes via EventHub Promo API.",
+          help: "Used when creating referral promo codes via EventHub Organizer Promo API.",
           fields: [
             {
               key: "promo.discountType",
               label: "Discount type",
-              help: "e.g. Percent or Fixed — must match EventHub API values."
+              help: "e.g. PERCENT or FIXED — must match EventHub API values."
             },
             {
               key: "promo.discountValue",
