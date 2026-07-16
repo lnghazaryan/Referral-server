@@ -19,7 +19,7 @@ function layout(title: string, content: string): string {
         <td align="center">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
             <tr>
-              <td style="padding:24px 28px;background:#0ea5e9;color:#ffffff;">
+              <td style="padding:24px 28px;background:#1a63f5;color:#ffffff;">
                 <div style="font-size:22px;font-weight:700;">Eventhub</div>
                 <div style="font-size:14px;opacity:0.9;margin-top:4px;">${title}</div>
               </td>
@@ -43,9 +43,9 @@ function layout(title: string, content: string): string {
 }
 
 function promoBlock(promoCode: string): string {
-  return `<div style="margin:20px 0;padding:16px 20px;border:1px dashed #0ea5e9;border-radius:10px;background:#f0f9ff;text-align:center;">
-    <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#0369a1;margin-bottom:8px;">Պրոմո կոդ</div>
-    <div style="font-size:28px;font-weight:700;letter-spacing:0.12em;color:#0c4a6e;">${promoCode}</div>
+  return `<div style="margin:20px 0;padding:16px 20px;border:1px dashed #1a63f5;border-radius:10px;background:#eaf1ff;text-align:center;">
+    <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#0f4cd2;margin-bottom:8px;">Պրոմո կոդ</div>
+    <div style="font-size:28px;font-weight:700;letter-spacing:0.12em;color:#0f4cd2;">${promoCode}</div>
   </div>`;
 }
 
