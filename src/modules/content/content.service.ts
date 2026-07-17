@@ -77,12 +77,27 @@ export class ContentService implements OnModuleInit {
           ? legacySteps
           : (DEFAULT_CONTENT[locale]["how.steps"] as HowStep[]);
       needsUpdate = true;
-    } else if (
+    } else     if (
       Array.isArray(upgraded["how.steps"]) &&
       upgraded["how.steps"].length === 0
     ) {
       upgraded["how.steps"] = DEFAULT_CONTENT[locale]["how.steps"];
       needsUpdate = true;
+    }
+
+    for (const [key, defaultValue] of Object.entries(
+      DEFAULT_CONTENT[locale]
+    )) {
+      const storedValue = upgraded[key];
+      const missing =
+        storedValue == null ||
+        (typeof defaultValue === "string" &&
+          typeof storedValue === "string" &&
+          storedValue.trim() === "");
+      if (missing) {
+        upgraded[key] = defaultValue;
+        needsUpdate = true;
+      }
     }
 
     if (!needsUpdate) return;

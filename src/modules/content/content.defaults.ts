@@ -35,6 +35,11 @@ export const DEFAULT_CONTENT: Record<SupportedLocale, LocaleContent> = {
     "result.goto": "Անցնել Eventhub",
     "result.label": "Քո պրոմո կոդը՝",
     "result.browse": "Դիտել միջոցառումները",
+    "terms.meta.title": "Eventhub | Պայմաններ և դրույթներ",
+    "terms.title": "Պայմաններ և դրույթներ",
+    "terms.body":
+      "Այս էջում կարող եք ծանոթանալ loyalty ծրագրի պայմաններին։\n\nԱվելի մանրամասն իրավական պայմանների համար տես Eventhub-ի պաշտոնական պայմանները։",
+    "terms.cta": "Դիտել Eventhub-ի պայմանները",
     "how.title": "Ինչպես է աշխատում",
     "how.steps": [
       {
@@ -65,7 +70,10 @@ export const DEFAULT_CONTENT: Record<SupportedLocale, LocaleContent> = {
     "footer.terms": "Պայմաններ և դրույթներ",
     "footer.rights": "Բոլոր իրավունքները պաշտպանված են։",
     "error.generic": "Ինչ-որ բան այն չէ։ Փորձիր նորից։",
-    "error.email": "Խնդրում ենք մուտքագրել վավեր էլ. հասցե։"
+    "error.email": "Խնդրում ենք մուտքագրել վավեր էլ. հասցե։",
+    "error.emailExists": "Այս էլ. հասցեն արդեն գրանցված է։",
+    "error.refNotFound": "Հրավերի հղումն անվավեր է կամ գոյություն չունի։",
+    "error.selfReferral": "Չես կարող օգտագործել քո սեփական հրավերի հղումը։"
   },
   ru: {
     htmlLang: "ru",
@@ -91,6 +99,11 @@ export const DEFAULT_CONTENT: Record<SupportedLocale, LocaleContent> = {
     "result.goto": "Перейти на Eventhub",
     "result.label": "Твой промокод:",
     "result.browse": "Смотреть события",
+    "terms.meta.title": "Eventhub | Условия использования",
+    "terms.title": "Условия использования",
+    "terms.body":
+      "На этой странице вы можете ознакомиться с условиями программы лояльности.\n\nПолные юридические условия доступны на официальной странице Eventhub.",
+    "terms.cta": "Смотреть условия Eventhub",
     "how.title": "Как это работает",
     "how.steps": [
       {
@@ -121,7 +134,10 @@ export const DEFAULT_CONTENT: Record<SupportedLocale, LocaleContent> = {
     "footer.terms": "Условия использования",
     "footer.rights": "Все права защищены.",
     "error.generic": "Что-то пошло не так. Попробуй ещё раз.",
-    "error.email": "Пожалуйста, введи корректный email."
+    "error.email": "Пожалуйста, введи корректный email.",
+    "error.emailExists": "Этот email уже зарегистрирован.",
+    "error.refNotFound": "Ссылка приглашения недействительна или не существует.",
+    "error.selfReferral": "Нельзя использовать собственную ссылку приглашения."
   },
   en: {
     htmlLang: "en",
@@ -147,6 +163,11 @@ export const DEFAULT_CONTENT: Record<SupportedLocale, LocaleContent> = {
     "result.goto": "Go to Eventhub",
     "result.label": "Your promo code:",
     "result.browse": "Browse events",
+    "terms.meta.title": "Eventhub | Terms and conditions",
+    "terms.title": "Terms and conditions",
+    "terms.body":
+      "This page covers the loyalty program terms.\n\nFor the full legal terms, see Eventhub's official terms and conditions.",
+    "terms.cta": "View Eventhub terms",
     "how.title": "How it works",
     "how.steps": [
       {
@@ -177,7 +198,10 @@ export const DEFAULT_CONTENT: Record<SupportedLocale, LocaleContent> = {
     "footer.terms": "Terms and conditions",
     "footer.rights": "All rights reserved.",
     "error.generic": "Something went wrong. Please try again.",
-    "error.email": "Please enter a valid email address."
+    "error.email": "Please enter a valid email address.",
+    "error.emailExists": "This email is already registered.",
+    "error.refNotFound": "This invitation link is invalid or does not exist.",
+    "error.selfReferral": "You can't use your own invitation link."
   }
 };
 

@@ -1690,7 +1690,7 @@ export class AdminUiController {
             { key: "hero.subtitle", label: "Subtitle under the headline", multiline: true },
             { key: "hero.emailPlaceholder", label: "Email input placeholder" },
             { key: "hero.cta", label: "Submit button" },
-            { key: "hero.note", label: "Small note under the form" },
+            { key: "hero.note", label: "Note under the promo code (after submit)", multiline: true },
             { key: "hero.sending", label: "Button text while submitting" },
             { key: "hero.refMissing", label: "Error when the invite link is missing", multiline: true }
           ]
@@ -1702,6 +1702,16 @@ export class AdminUiController {
             { key: "result.label", label: "Text before the code" },
             { key: "result.copied", label: "\\"Copied!\\" confirmation" },
             { key: "result.browse", label: "Browse events button" }
+          ]
+        },
+        {
+          group: "Terms and conditions",
+          help: "Loyalty terms page linked from the footer. Body text supports blank lines between paragraphs.",
+          fields: [
+            { key: "terms.meta.title", label: "Browser tab title for terms page" },
+            { key: "terms.title", label: "Page headline" },
+            { key: "terms.body", label: "Page body", multiline: true, help: "Separate paragraphs with a blank line." },
+            { key: "terms.cta", label: "Button to Eventhub terms" }
           ]
         },
         {
@@ -1735,10 +1745,13 @@ export class AdminUiController {
         },
         {
           group: "Error messages",
-          help: "Shown to the visitor when something goes wrong.",
+          help: "Shown on the landing sign-up form. Backend returns error codes (e.g. REFERRED_EMAIL_EXISTS) that map to these fields.",
           fields: [
             { key: "error.generic", label: "Generic error", multiline: true },
-            { key: "error.email", label: "Invalid email error", multiline: true }
+            { key: "error.email", label: "Invalid email error", multiline: true },
+            { key: "error.emailExists", label: "Email already registered", multiline: true },
+            { key: "error.refNotFound", label: "Invalid / missing invite link", multiline: true },
+            { key: "error.selfReferral", label: "Using own invite link", multiline: true }
           ]
         }
       ];

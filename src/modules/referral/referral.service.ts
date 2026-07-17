@@ -23,6 +23,7 @@ import { CreateReferredDto } from "./dto/create-referred.dto";
 import { ReferredPaymentDto } from "./dto/referred-payment.dto";
 import { RegisterReferralDto } from "./dto/register-referral.dto";
 import { generateReferralCode } from "./utils/generate-referral-code";
+import { REFERRAL_API_ERRORS } from "./referral-api.errors";
 
 const PROMO_PURPOSE_SIGNUP = "signup";
 const PROMO_PURPOSE_PAYMENT_REWARD = "payment_reward";
@@ -119,9 +120,7 @@ export class ReferralService {
     const referralOwner = await this.getReferralByCode(dto.referralCode);
 
     if (referralOwner.email.toLowerCase() === dto.email.toLowerCase()) {
-      throw new BadRequestException(
-        "Referred user cannot be the same as referral owner."
-      );
+      throw new BadRequestException(REFERRAL_API_ERRORS.SELF_REFERRAL);
     }
 
     await this.ensureReferredEmailAvailable(dto.email);
@@ -191,9 +190,7 @@ export class ReferralService {
     const referralOwner = await this.getReferralByCode(dto.referralCode);
 
     if (referralOwner.email.toLowerCase() === dto.email.toLowerCase()) {
-      throw new BadRequestException(
-        "Referred user cannot be the same as referral owner."
-      );
+      throw new BadRequestException(REFERRAL_API_ERRORS.SELF_REFERRAL);
     }
 
     const [existingReferred] = await this.databaseService.db
@@ -555,7 +552,7 @@ export class ReferralService {
       .limit(1);
 
     if (!referralOwner) {
-      throw new NotFoundException("Referral code does not exist.");
+      throw new NotFoundException(REFERRAL_API_ERRORS.REFERRAL_CODE_NOT_FOUND);
     }
 
     return referralOwner;
@@ -568,7 +565,7 @@ export class ReferralService {
       .where(eq(referred.email, email))
       .limit(1);
     if (existingByEmail) {
-      throw new ConflictException("Referred email already exists.");
+      throw new ConflictException(REFERRAL_API_ERRORS.REFERRED_EMAIL_EXISTS);
     }
   }
 
