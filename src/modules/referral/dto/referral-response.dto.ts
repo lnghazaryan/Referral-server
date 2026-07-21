@@ -64,6 +64,14 @@ export class ReferredResponseDto {
   hasPayment!: boolean;
 
   @ApiProperty({
+    type: Number,
+    example: 15000,
+    required: false,
+    nullable: true
+  })
+  buyPrice!: number | null;
+
+  @ApiProperty({
     type: String,
     format: "date-time",
     example: "2026-07-07T09:05:00.000Z"

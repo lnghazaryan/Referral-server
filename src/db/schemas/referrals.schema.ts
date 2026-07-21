@@ -1,5 +1,6 @@
 import {
   boolean,
+  numeric,
   pgTable,
   serial,
   timestamp,
@@ -33,6 +34,7 @@ export const referred = pgTable(
       .references(() => referrals.referralCode),
     eventId: varchar("event_id", { length: 36 }),
     hasPayment: boolean("has_payment").notNull().default(false),
+    buyPrice: numeric("buy_price", { precision: 12, scale: 2 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow()

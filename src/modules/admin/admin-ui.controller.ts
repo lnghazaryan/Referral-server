@@ -806,7 +806,7 @@ export class AdminUiController {
                 <button class="btn-soft" onclick="getById('referred')">Find</button>
               </div>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>referredId</th><th>email</th><th>phone</th><th>referralCode</th><th>eventId</th><th>referrerEmail</th><th>referrerPhone</th><th>hasPayment</th></tr></thead><tbody id="referredRows"><tr><td colspan="8" class="empty">No data yet</td></tr></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>referredId</th><th>email</th><th>phone</th><th>referralCode</th><th>eventId</th><th>referrerEmail</th><th>referrerPhone</th><th>hasPayment</th><th>buyPrice</th></tr></thead><tbody id="referredRows"><tr><td colspan="9" class="empty">No data yet</td></tr></tbody></table></div>
           </section>
 
           <section class="entity" data-entity="users">
@@ -982,7 +982,8 @@ export class AdminUiController {
             "eventId",
             "referrerEmail",
             "referrerPhone",
-            "hasPayment"
+            "hasPayment",
+            "buyPrice"
           ],
           createFields: [],
           readOnlyCreate: true
@@ -1242,6 +1243,11 @@ export class AdminUiController {
           return val === true || val === "true"
             ? badge("badge-green", "Yes")
             : badge("badge-slate", "No");
+        }
+        if (col === "buyPrice") {
+          if (val === null || val === undefined || val === "") return "";
+          const num = Number(val);
+          return Number.isFinite(num) ? num.toLocaleString() : String(val);
         }
         if (col === "purpose") {
           if (val === "payment_reward") return badge("badge-violet", "reward");

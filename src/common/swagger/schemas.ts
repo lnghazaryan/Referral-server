@@ -73,7 +73,13 @@ export const referredPaymentBodySchema = {
       description:
         "EventHub event UUID the referred user purchased. Referrer promo is only generated when this event is in our events list."
     },
-    phone: { type: "string", nullable: true, example: "+37477111222" }
+    phone: { type: "string", nullable: true, example: "+37477111222" },
+    buyPrice: {
+      type: "number",
+      nullable: true,
+      example: 15000,
+      description: "Total purchase amount paid by the referred user."
+    }
   },
   required: ["email", "referralCode", "eventId"]
 };
@@ -212,6 +218,7 @@ export const referredSchema = {
       nullable: true
     },
     hasPayment: { type: "boolean", example: false },
+    buyPrice: { type: "number", nullable: true, example: 15000 },
     referrerId: { type: "number", example: 1 },
     referrerEmail: { type: "string", example: "owner@example.com" },
     referrerPhone: {

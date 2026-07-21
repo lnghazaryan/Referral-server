@@ -271,6 +271,10 @@ export class ReferralService {
       .set({
         hasPayment: eventInList,
         phone: existingReferred.phone ?? dto.phone ?? null,
+        buyPrice:
+          dto.buyPrice != null
+            ? String(dto.buyPrice)
+            : existingReferred.buyPrice,
         // Only record the event when it is in our list; a non-list payment must
         // not overwrite the stored event and keeps it null for pending records.
         eventId: eventInList ? dto.eventId : existingReferred.eventId
@@ -329,7 +333,8 @@ export class ReferralService {
           phone: dto.phone ?? null,
           referralCode: dto.referralCode,
           eventId: null,
-          hasPayment: false
+          hasPayment: false,
+          buyPrice: dto.buyPrice != null ? String(dto.buyPrice) : null
         })
         .returning();
       this.logger.log(
@@ -350,7 +355,8 @@ export class ReferralService {
         phone: dto.phone ?? null,
         referralCode: dto.referralCode,
         eventId: dto.eventId,
-        hasPayment: true
+        hasPayment: true,
+        buyPrice: dto.buyPrice != null ? String(dto.buyPrice) : null
       })
       .returning();
     this.logger.log(
@@ -435,6 +441,7 @@ export class ReferralService {
         referralCode: referred.referralCode,
         eventId: referred.eventId,
         hasPayment: referred.hasPayment,
+        buyPrice: referred.buyPrice,
         createdAt: referred.createdAt,
         referrerId: referrals.referralId,
         referrerEmail: referrals.email,
@@ -453,6 +460,7 @@ export class ReferralService {
         referralCode: referred.referralCode,
         eventId: referred.eventId,
         hasPayment: referred.hasPayment,
+        buyPrice: referred.buyPrice,
         createdAt: referred.createdAt,
         referrerId: referrals.referralId,
         referrerEmail: referrals.email,

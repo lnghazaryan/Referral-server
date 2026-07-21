@@ -1,9 +1,11 @@
 import { ApiProperty } from "@nestjs/swagger";
 import {
   IsEmail,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Min,
   MinLength
 } from "class-validator";
 
@@ -33,4 +35,15 @@ export class ReferredPaymentDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiProperty({
+    example: 15000,
+    required: false,
+    nullable: true,
+    description: "Total purchase amount paid by the referred user."
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  buyPrice?: number;
 }
