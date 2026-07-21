@@ -24,7 +24,6 @@ function layout(title: string, content: string): string {
             <tr>
               <td style="padding:24px 28px;background:#1a63f5;color:#ffffff;">
                 <div style="font-size:22px;font-weight:700;">Eventhub</div>
-                <div style="font-size:14px;opacity:0.9;margin-top:4px;">${title}</div>
               </td>
             </tr>
             <tr>
@@ -65,7 +64,7 @@ export function buildMailHtml(kind: MailKind, input: TemplateInput): string {
     return layout(
       "Բարի գալուստ Eventhub",
       `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
-          Բարի գալուստ Eventhub։ Դու հաջողությամբ գրանցվել ես ընկերոջդ հրավերով։
+          Դու հաջողությամբ գրանցվել ես ընկերոջդ հրավերով։
         </p>
         <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">
           Քո պրոմոկոդն է՝
@@ -80,7 +79,7 @@ export function buildMailHtml(kind: MailKind, input: TemplateInput): string {
   return layout(
     "Հիանալի նորություն",
     `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
-        Հիանալի նորություն։ քո հրավիրած ընկերն արդեն կատարել է առաջին գնումը։
+        Քո հրավիրած ընկերն արդեն կատարել է առաջին գնումը։
       </p>
       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">
         Քո պրոմոկոդն է՝
