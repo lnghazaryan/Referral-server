@@ -5,6 +5,9 @@ type TemplateInput = {
   referralCode: string;
 };
 
+const FOOTER =
+  "Այս նամակն ուղարկվել է Eventhub-ի կողմից։ Եթե քեզ այն ծանոթ չէ, կարող ես անտեսել նամակը։";
+
 function layout(title: string, content: string): string {
   return `<!doctype html>
 <html lang="hy">
@@ -30,8 +33,8 @@ function layout(title: string, content: string): string {
               </td>
             </tr>
             <tr>
-              <td style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">
-                Այս նամակն ուղարկվել է Eventhub-ի կողմից։ Եթե այս նամակը ձեզ ծանոթ չէ, կարող եք անտեսել այն։
+              <td style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;line-height:1.6;">
+                ${FOOTER}
               </td>
             </tr>
           </table>
@@ -44,47 +47,44 @@ function layout(title: string, content: string): string {
 
 function promoBlock(promoCode: string): string {
   return `<div style="margin:20px 0;padding:16px 20px;border:1px dashed #1a63f5;border-radius:10px;background:#eaf1ff;text-align:center;">
-    <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#0f4cd2;margin-bottom:8px;">Պրոմո կոդ</div>
+    <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#0f4cd2;margin-bottom:8px;">ՊՐՈՄՈ ԿՈԴ</div>
     <div style="font-size:28px;font-weight:700;letter-spacing:0.12em;color:#0f4cd2;">${promoCode}</div>
   </div>`;
 }
 
 export function buildMailSubject(kind: MailKind): string {
   if (kind === "signup_promo") {
-    return "Ձեր Eventhub պրոմո կոդը";
+    return "Բարի գալուստ Eventhub";
   }
 
-  return "Ձեր Eventhub ռեֆերալ պարգևը";
+  return "Հիանալի նորություն";
 }
 
 export function buildMailHtml(kind: MailKind, input: TemplateInput): string {
   if (kind === "signup_promo") {
     return layout(
-      "Ձեր պրոմո կոդը",
-      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;">
-          Շնորհակալություն ռեֆերալ հղումով միանալու համար։
+      "Բարի գալուստ Eventhub",
+      `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+          Բարի գալուստ Eventhub։ Դու հաջողությամբ գրանցվել ես ընկերոջդ հրավերով։
         </p>
         <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">
-          Օգտագործեք ստորև բերված պրոմո կոդը ձեր հաջորդ Eventhub գնման ժամանակ։
+          Քո պրոմոկոդն է՝
         </p>
         ${promoBlock(input.promoCode)}
-        <p style="margin:0;font-size:13px;line-height:1.6;color:#64748b;">
-          Ռեֆերալ կոդ՝ <strong>${input.referralCode}</strong>
+        <p style="margin:0;font-size:15px;line-height:1.6;">
+          Օգտագործիր այն ցանկում նշված միջոցառումների համար, երբ գնես առաջին տոմսդ, նվեր կստանա նաև քեզ հրավիրողը։
         </p>`
     );
   }
 
   return layout(
-    "Ռեֆերալ պարգև",
-    `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;">
-        Հիանալի նորություն՝ ձեր հրավիրած օգտատերը կատարել է վճարում։
+    "Հիանալի նորություն",
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+        Հիանալի նորություն։ քո հրավիրած ընկերն արդեն կատարել է առաջին գնումը։
       </p>
       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">
-        Ահա ձեր պարգևի պրոմո կոդը՝
+        Քո պրոմոկոդն է՝
       </p>
-      ${promoBlock(input.promoCode)}
-      <p style="margin:0;font-size:13px;line-height:1.6;color:#64748b;">
-        Ձեր ռեֆերալ կոդը՝ <strong>${input.referralCode}</strong>
-      </p>`
+      ${promoBlock(input.promoCode)}`
   );
 }
