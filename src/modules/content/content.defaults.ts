@@ -73,7 +73,17 @@ export const DEFAULT_CONTENT: Record<SupportedLocale, LocaleContent> = {
     "error.email": "Խնդրում ենք մուտքագրել վավեր էլ. հասցե։",
     "error.emailExists": "Այս էլ. հասցեն արդեն գրանցված է։",
     "error.refNotFound": "Հրավերի հղումն անվավեր է կամ գոյություն չունի։",
-    "error.selfReferral": "Չես կարող օգտագործել քո սեփական հրավերի հղումը։"
+    "error.selfReferral": "Չես կարող օգտագործել քո սեփական հրավերի հղումը։",
+    "promoPage.meta.title": "Eventhub | Քո պրոմո կոդը",
+    "promoPage.hero.badge": "Քո զեղչը",
+    "promoPage.hero.title": "Օգտագործիր քո պրոմո կոդը",
+    "promoPage.hero.subtitle":
+      "Ստորև կարող ես տեսնել քո անհատական պրոմո կոդը և Eventhub-ի միջոցառումները, որոնց համար այն կարող ես կիրառել։",
+    "promoPage.hero.note": "Պատճենիր կոդը և օգտագործիր գնման ժամանակ Eventhub-ում։",
+    "promoPage.result.label": "Քո պրոմո կոդը՝",
+    "promoPage.result.browse": "Դիտել միջոցառումները",
+    "promoPage.missing":
+      "Պրոմո կոդը բացակայում է հղումից։ Բացիր նամակում ուղարկված հղումը կամ դիմիր աջակցությանը։"
   },
   ru: {
     htmlLang: "ru",
@@ -137,7 +147,17 @@ export const DEFAULT_CONTENT: Record<SupportedLocale, LocaleContent> = {
     "error.email": "Пожалуйста, введи корректный email.",
     "error.emailExists": "Этот email уже зарегистрирован.",
     "error.refNotFound": "Ссылка приглашения недействительна или не существует.",
-    "error.selfReferral": "Нельзя использовать собственную ссылку приглашения."
+    "error.selfReferral": "Нельзя использовать собственную ссылку приглашения.",
+    "promoPage.meta.title": "Eventhub | Твой промокод",
+    "promoPage.hero.badge": "Твоя скидка",
+    "promoPage.hero.title": "Используй свой промокод",
+    "promoPage.hero.subtitle":
+      "Ниже ты увидишь свой персональный промокод и события Eventhub, на которые его можно применить.",
+    "promoPage.hero.note": "Скопируй код и используй его при покупке на Eventhub.",
+    "promoPage.result.label": "Твой промокод:",
+    "promoPage.result.browse": "Смотреть события",
+    "promoPage.missing":
+      "В ссылке нет промокода. Открой ссылку из письма или обратись в поддержку."
   },
   en: {
     htmlLang: "en",
@@ -201,7 +221,17 @@ export const DEFAULT_CONTENT: Record<SupportedLocale, LocaleContent> = {
     "error.email": "Please enter a valid email address.",
     "error.emailExists": "This email is already registered.",
     "error.refNotFound": "This invitation link is invalid or does not exist.",
-    "error.selfReferral": "You can't use your own invitation link."
+    "error.selfReferral": "You can't use your own invitation link.",
+    "promoPage.meta.title": "Eventhub | Your promo code",
+    "promoPage.hero.badge": "Your discount",
+    "promoPage.hero.title": "Use your promo code",
+    "promoPage.hero.subtitle":
+      "Below you can see your personal promo code and Eventhub events where you can apply it.",
+    "promoPage.hero.note": "Copy the code and use it when buying on Eventhub.",
+    "promoPage.result.label": "Your promo code:",
+    "promoPage.result.browse": "Browse events",
+    "promoPage.missing":
+      "This link is missing a promo code. Open the link from your email or contact support."
   }
 };
 

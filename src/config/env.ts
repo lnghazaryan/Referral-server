@@ -24,5 +24,7 @@ export const env = {
   EVENTHUB_DEFAULT_LANGUAGE: process.env.EVENTHUB_DEFAULT_LANGUAGE ?? "am",
   EMAIL_API_URL:
     process.env.EMAIL_API_URL ?? "https://email.dinno.am/api/send",
-  EMAIL_API_KEY: process.env.EMAIL_API_KEY ?? ""
+  EMAIL_API_KEY: process.env.EMAIL_API_KEY ?? "",
+  LANDING_BASE_URL:
+    process.env.LANDING_BASE_URL ?? "https://loyalty.eventhub.am"
 };

@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards
 } from "@nestjs/common";
 import {
@@ -74,8 +75,8 @@ export class ReferralController {
   })
   @Public()
   @Get("public/events")
-  listPublicEvents() {
-    return this.referralService.listPublicEvents();
+  listPublicEvents(@Query("lang") lang?: string) {
+    return this.referralService.listPublicEvents(lang);
   }
 
   @InternalApi()

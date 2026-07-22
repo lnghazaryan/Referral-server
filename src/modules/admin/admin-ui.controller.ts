@@ -1721,6 +1721,28 @@ export class AdminUiController {
           ]
         },
         {
+          group: "Promo events page (/events?PROMO=…)",
+          help: "Shown when someone opens the promo landing from email (no sign-up form, promo from URL).",
+          fields: [
+            { key: "promoPage.meta.title", label: "Browser tab title" },
+            { key: "promoPage.hero.badge", label: "Small label above the title" },
+            { key: "promoPage.hero.title", label: "Main headline", multiline: true },
+            {
+              key: "promoPage.hero.subtitle",
+              label: "Subtitle under the headline",
+              multiline: true
+            },
+            { key: "promoPage.result.label", label: "Text before the promo code" },
+            { key: "promoPage.hero.note", label: "Note under the promo code", multiline: true },
+            { key: "promoPage.result.browse", label: "Browse events button" },
+            {
+              key: "promoPage.missing",
+              label: "Message when PROMO is missing from the URL",
+              multiline: true
+            }
+          ]
+        },
+        {
           group: "How it works",
           help: "Steps that explain the flow. Add, remove or reorder as many as you like.",
           steps: true,

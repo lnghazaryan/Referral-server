@@ -7,6 +7,7 @@ import {
   EventUrlSlugs,
   isCinemaCategory
 } from "../../common/utils/event-slug";
+import { buildEventI18n } from "../../common/utils/event-i18n";
 import { DatabaseService } from "../database/database.service";
 import {
   EventHubEventsService,
@@ -65,7 +66,17 @@ export class AdminService {
   async syncEvents(dto: SyncEventsDto) {
     await this.removePastEvents();
 
-    const catalog = await this.eventHubEventsService.searchEvents();
+    const [catalogAm, catalogRu, catalogEn] = await Promise.all([
+      this.eventHubEventsService.searchEvents("am"),
+      this.eventHubEventsService.searchEvents("ru"),
+      this.eventHubEventsService.searchEvents("en")
+    ]);
+    const catalog = catalogAm;
+    const byLang = {
+      am: new Map(catalogAm.map((item) => [item.eventId, item])),
+      ru: new Map(catalogRu.map((item) => [item.eventId, item])),
+      en: new Map(catalogEn.map((item) => [item.eventId, item]))
+    };
     const urlSlugsByEventId =
       await this.eventHubEventsService.buildEnglishUrlSlugsMap(catalog);
     const now = getArmeniaNow();
@@ -105,7 +116,8 @@ export class AdminService {
 
       const values = this.mapEventHubItem(
         item,
-        urlSlugsByEventId.get(item.eventId)
+        urlSlugsByEventId.get(item.eventId),
+        byLang
       );
 
       if (existing) {
@@ -222,16 +234,24 @@ export class AdminService {
 
   private mapEventHubItem(
     item: EventHubSearchItem,
-    urlSlugs?: EventUrlSlugs
+    urlSlugs: EventUrlSlugs | undefined,
+    byLang: {
+      am: Map<string, EventHubSearchItem>;
+      ru: Map<string, EventHubSearchItem>;
+      en: Map<string, EventHubSearchItem>;
+    }
   ) {
+    const i18n = buildEventI18n(item.eventId, byLang);
+    const primary = i18n.hy;
     return {
       eventId: item.eventId,
-      name: item.eventName ?? "Event",
+      name: primary.name,
       date: parseEventHubDateTime(item.eventDateTime),
-      venue: item.venue,
-      category: item.eventCategory,
+      venue: primary.venue,
+      category: primary.category,
       data: {
         ...item,
+        i18n,
         urlSlugs: urlSlugs ?? {
           nameSlug: "",
           categorySlug: "events",

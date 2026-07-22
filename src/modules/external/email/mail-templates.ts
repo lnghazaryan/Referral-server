@@ -1,4 +1,5 @@
 import type { MailKind } from "./mail.types";
+import { env } from "../../../config/env";
 
 type TemplateInput = {
   promoCode: string;
@@ -7,6 +8,11 @@ type TemplateInput = {
 
 const FOOTER =
   "Այս նամակն ուղարկվել է Eventhub-ի կողմից։ Եթե քեզ այն ծանոթ չէ, կարող ես անտեսել նամակը։";
+
+export function buildPromoEventsLandingUrl(promoCode: string): string {
+  const base = env.LANDING_BASE_URL.replace(/\/$/, "");
+  return `${base}/events/?PROMO=${encodeURIComponent(promoCode)}`;
+}
 
 function layout(title: string, content: string): string {
   return `<!doctype html>
@@ -51,6 +57,11 @@ function promoBlock(promoCode: string): string {
   </div>`;
 }
 
+function eventsLandingLink(promoCode: string): string {
+  const url = buildPromoEventsLandingUrl(promoCode);
+  return `<a href="${url}" style="color:#1a63f5;font-weight:600;text-decoration:underline;">այստեղ</a>`;
+}
+
 export function buildMailSubject(kind: MailKind): string {
   if (kind === "signup_promo") {
     return "Բարի գալուստ Eventhub";
@@ -60,6 +71,8 @@ export function buildMailSubject(kind: MailKind): string {
 }
 
 export function buildMailHtml(kind: MailKind, input: TemplateInput): string {
+  const here = eventsLandingLink(input.promoCode);
+
   if (kind === "signup_promo") {
     return layout(
       "Բարի գալուստ Eventhub",
@@ -70,8 +83,11 @@ export function buildMailHtml(kind: MailKind, input: TemplateInput): string {
           Քո պրոմոկոդն է՝
         </p>
         ${promoBlock(input.promoCode)}
-        <p style="margin:0;font-size:15px;line-height:1.6;">
+        <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
           Օգտագործիր այն ցանկում նշված միջոցառումների համար, երբ գնես առաջին տոմսդ, նվեր կստանա նաև քեզ հրավիրողը։
+        </p>
+        <p style="margin:0;font-size:15px;line-height:1.6;">
+          Միջոցառումները և քո կոդը կարող ես տեսնել ${here}։
         </p>`
     );
   }
@@ -84,6 +100,12 @@ export function buildMailHtml(kind: MailKind, input: TemplateInput): string {
       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">
         Քո պրոմոկոդն է՝
       </p>
-      ${promoBlock(input.promoCode)}`
+      ${promoBlock(input.promoCode)}
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+        Օգտագործիր այն ցանկում նշված միջոցառումների համար։
+      </p>
+      <p style="margin:0;font-size:15px;line-height:1.6;">
+        Միջոցառումները և քո կոդը կարող ես տեսնել ${here}։
+      </p>`
   );
 }

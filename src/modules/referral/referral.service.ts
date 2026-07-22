@@ -12,6 +12,10 @@ import {
   EventUrlSlugs
 } from "../../common/utils/event-slug";
 import { filterValidGuids } from "../../common/utils/guid";
+import {
+  localizedEventDisplay,
+  resolveEventLocale
+} from "../../common/utils/event-i18n";
 import { events, promos, referred, referrals } from "../../db/schema";
 import {
   ExternalPromoResponse,
@@ -83,9 +87,10 @@ export class ReferralService {
     return created;
   }
 
-  async listPublicEvents() {
+  async listPublicEvents(lang?: string) {
     await this.removePastEvents();
 
+    const locale = resolveEventLocale(lang);
     const list = await this.databaseService.db.select().from(events);
     return list
       .filter((event) => Boolean(event.eventId))
@@ -100,12 +105,13 @@ export class ReferralService {
           urlSlugs && event.eventId
             ? buildEventHubRelativePath(event.eventId, urlSlugs)
             : null;
+        const display = localizedEventDisplay(event, locale);
         return {
           eventId: event.eventId,
-          name: event.name,
+          name: display.name,
           date: event.date,
-          venue: event.venue,
-          category: event.category,
+          venue: display.venue,
+          category: display.category,
           eventUrlPath,
           imageUrl
         };
