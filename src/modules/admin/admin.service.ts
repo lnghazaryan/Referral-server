@@ -1,5 +1,6 @@
 import {
   getArmeniaNow,
+  getArmeniaStartOfToday,
   isEventDatePast,
   parseEventHubDateTime
 } from "../../common/utils/event-datetime";
@@ -17,7 +18,7 @@ import { CreateEventDto } from "./dto/create-event.dto";
 import { SyncEventsDto } from "./dto/sync-events.dto";
 import { events, promos, referred } from "../../db/schema";
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { eq, inArray, lte, notInArray } from "drizzle-orm";
+import { eq, inArray, lt, notInArray } from "drizzle-orm";
 
 @Injectable()
 export class AdminService {
@@ -163,10 +164,9 @@ export class AdminService {
   }
 
   async removePastEvents() {
-    const now = getArmeniaNow();
     await this.databaseService.db
       .delete(events)
-      .where(lte(events.date, now));
+      .where(lt(events.date, getArmeniaStartOfToday()));
   }
 
   private async removeEventsAbsentFromCatalog(catalogEventIds: string[]) {

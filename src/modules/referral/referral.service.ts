@@ -5,8 +5,8 @@ import {
   Logger,
   NotFoundException
 } from "@nestjs/common";
-import { and, eq, lte } from "drizzle-orm";
-import { getArmeniaNow } from "../../common/utils/event-datetime";
+import { and, eq, lt } from "drizzle-orm";
+import { getArmeniaStartOfToday } from "../../common/utils/event-datetime";
 import {
   buildEventHubRelativePath,
   EventUrlSlugs
@@ -713,8 +713,9 @@ export class ReferralService {
   }
 
   private async removePastEvents() {
-    const now = getArmeniaNow();
-    await this.databaseService.db.delete(events).where(lte(events.date, now));
+    await this.databaseService.db
+      .delete(events)
+      .where(lt(events.date, getArmeniaStartOfToday()));
   }
 
   private async generateUniqueReferralCode() {

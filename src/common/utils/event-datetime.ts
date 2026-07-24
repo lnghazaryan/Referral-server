@@ -51,6 +51,21 @@ export function getArmeniaNow(): Date {
   return new Date();
 }
 
+/** YYYY-MM-DD in Asia/Yerevan. */
+export function toArmeniaDateKey(date: Date): string {
+  return date.toLocaleDateString("en-CA", { timeZone: ARMENIA_TIMEZONE });
+}
+
+/** Midnight Asia/Yerevan for the current Armenia calendar day. */
+export function getArmeniaStartOfToday(now: Date = getArmeniaNow()): Date {
+  const key = toArmeniaDateKey(now);
+  return new Date(`${key}T00:00:00${ARMENIA_UTC_OFFSET}`);
+}
+
+/**
+ * True when the event's Armenia calendar day is before today.
+ * Same-day events stay visible regardless of clock time.
+ */
 export function isEventDatePast(
   value: Date | string | null | undefined,
   now: Date = getArmeniaNow()
@@ -64,5 +79,5 @@ export function isEventDatePast(
     return false;
   }
 
-  return date.getTime() <= now.getTime();
+  return toArmeniaDateKey(date) < toArmeniaDateKey(now);
 }
