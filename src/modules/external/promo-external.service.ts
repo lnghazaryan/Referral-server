@@ -74,19 +74,7 @@ export class PromoExternalService {
     const authHeaders = { Authorization: `Bearer ${accessToken}` };
 
     for (const eventId of eventIds) {
-      const path = `/Promo/Create/${eventId}`;
-      this.logger.log(
-        `createPromo: POST ${path} ${JSON.stringify(body)}`
-      );
-
-      const response = await this.promoApiClient.post(path, body, {
-        skipAuth: true,
-        headers: authHeaders
-      });
-
-      this.logger.log(
-        `createPromo: response for eventId=${eventId} ${JSON.stringify(response ?? null)}`
-      );
+      await this.createPromoOnEvent(eventId, body, authHeaders, false);
     }
 
     this.logger.log(
@@ -101,9 +89,84 @@ export class PromoExternalService {
     };
   }
 
+  /**
+   * Attach an existing promo code to additional events (e.g. after admin
+   * selects new events). Per-event failures are logged and skipped so one
+   * EventHub conflict does not block the rest.
+   */
+  async attachPromoToEvents(input: {
+    code: string;
+    eventIds: string[];
+  }): Promise<string[]> {
+    const eventIds = filterValidGuids(input.eventIds);
+    if (!eventIds.length) {
+      return [];
+    }
+
+    const promo = this.settingsService.getPromoSettings();
+    const unit = this.mapDiscountUnit(promo.discountType);
+    const body: PromoCreateRequest = {
+      code: input.code,
+      unit,
+      discount: promo.discountValue,
+      count: promo.maxCount
+    };
+
+    const accessToken = await this.promoApiClient.authorize();
+    const authHeaders = { Authorization: `Bearer ${accessToken}` };
+    const attached: string[] = [];
+
+    for (const eventId of eventIds) {
+      const ok = await this.createPromoOnEvent(
+        eventId,
+        body,
+        authHeaders,
+        true
+      );
+      if (ok) {
+        attached.push(eventId);
+      }
+    }
+
+    this.logger.log(
+      `attachPromoToEvents: code=${input.code} attached=${attached.length}/${eventIds.length}`
+    );
+    return attached;
+  }
+
   /** @deprecated use createPromo */
   async fetchPromoCode(eventId: string): Promise<ExternalPromoResponse> {
     return this.createPromo({ eventIds: [eventId] });
+  }
+
+  private async createPromoOnEvent(
+    eventId: string,
+    body: PromoCreateRequest,
+    authHeaders: Record<string, string>,
+    softFail: boolean
+  ): Promise<boolean> {
+    const path = `/Promo/Create/${eventId}`;
+    this.logger.log(`createPromo: POST ${path} ${JSON.stringify(body)}`);
+
+    try {
+      const response = await this.promoApiClient.post(path, body, {
+        skipAuth: true,
+        headers: authHeaders
+      });
+      this.logger.log(
+        `createPromo: response for eventId=${eventId} ${JSON.stringify(response ?? null)}`
+      );
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (softFail) {
+        this.logger.warn(
+          `createPromo: skipped eventId=${eventId} code=${body.code}: ${message}`
+        );
+        return false;
+      }
+      throw error;
+    }
   }
 
   private mapDiscountUnit(discountType: string): string {

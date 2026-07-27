@@ -498,6 +498,7 @@ export class ReferralService {
         recipientEmail: promos.recipientEmail,
         recipientRole: promos.recipientRole,
         eventId: promos.eventId,
+        eventIds: promos.eventIds,
         isUsed: promos.isUsed,
         createdAt: promos.createdAt,
         expiredAt: promos.expiredAt
@@ -648,7 +649,8 @@ export class ReferralService {
     }
   ) {
     const { external, eventIds, recipientEmail, recipientRole } = input;
-    const primaryEventId = eventIds[referredId % eventIds.length];
+    const storedEventIds = filterValidGuids(eventIds);
+    const primaryEventId = storedEventIds[0] ?? null;
 
     const [createdPromo] = await this.databaseService.db
       .insert(promos)
@@ -662,12 +664,13 @@ export class ReferralService {
         recipientEmail,
         recipientRole,
         eventId: primaryEventId,
+        eventIds: storedEventIds,
         isUsed: false
       })
       .returning();
 
     this.logger.log(
-      `storePromo: stored promo id=${createdPromo.id} referredId=${referredId} purpose=${purpose} recipient=${recipientEmail} (${recipientRole})`
+      `storePromo: stored promo id=${createdPromo.id} referredId=${referredId} purpose=${purpose} recipient=${recipientEmail} (${recipientRole}) events=${storedEventIds.length}`
     );
     return createdPromo;
   }

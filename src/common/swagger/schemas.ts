@@ -173,6 +173,11 @@ export const promoSchema = {
       example: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
       nullable: true
     },
+    eventIds: {
+      type: "array",
+      items: { type: "string" },
+      example: ["3fa85f64-5717-4562-b3fc-2c963f66afa6"]
+    },
     isUsed: { type: "boolean", example: false },
     createdAt: { ...dateTimeSchema, example: "2026-01-01T08:00:00.000Z" },
     expiredAt: { ...dateTimeSchema, example: "2026-12-31T23:59:59.000Z" }

@@ -71,6 +71,13 @@
       "when": 1783506000000,
       "tag": "0009_referred_buy_price",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783507000000,
+      "tag": "0010_promo_event_ids",
+      "breakpoints": true
     }
   ]
 }

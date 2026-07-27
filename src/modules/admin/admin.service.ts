@@ -8,23 +8,28 @@ import {
   EventUrlSlugs,
   isCinemaCategory
 } from "../../common/utils/event-slug";
+import { filterValidGuids } from "../../common/utils/guid";
 import { buildEventI18n } from "../../common/utils/event-i18n";
 import { DatabaseService } from "../database/database.service";
 import {
   EventHubEventsService,
   EventHubSearchItem
 } from "../external/eventhub/eventhub-events.service";
+import { PromoExternalService } from "../external/promo-external.service";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { SyncEventsDto } from "./dto/sync-events.dto";
 import { events, promos, referred } from "../../db/schema";
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { eq, inArray, lt, notInArray } from "drizzle-orm";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { and, eq, gt, inArray, lt, notInArray } from "drizzle-orm";
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private readonly databaseService: DatabaseService,
-    private readonly eventHubEventsService: EventHubEventsService
+    private readonly eventHubEventsService: EventHubEventsService,
+    private readonly promoExternalService: PromoExternalService
   ) {}
 
   async listEvents() {
@@ -93,10 +98,17 @@ export class AdminService {
     const localEvents = await this.databaseService.db
       .select({ eventId: events.eventId })
       .from(events);
-    const idsToRemove = localEvents
-      .map((item) => item.eventId)
-      .filter((eventId): eventId is string => Boolean(eventId))
-      .filter((eventId) => !selectedIds.has(eventId));
+    const previousIds = new Set(
+      localEvents
+        .map((item) => item.eventId)
+        .filter((eventId): eventId is string => Boolean(eventId))
+    );
+    const idsToRemove = [...previousIds].filter(
+      (eventId) => !selectedIds.has(eventId)
+    );
+    const newlyAddedIds = [...selectedIds].filter(
+      (eventId) => !previousIds.has(eventId)
+    );
 
     if (idsToRemove.length > 0) {
       await this.databaseService.db
@@ -131,7 +143,93 @@ export class AdminService {
       }
     }
 
+    if (newlyAddedIds.length > 0) {
+      await this.extendActivePromosToEvents(newlyAddedIds);
+    }
+
     return this.listEvents();
+  }
+
+  /**
+   * When admin adds events, attach every unused unexpired promo code to those
+   * new EventHub events and persist the updated eventIds list.
+   */
+  private async extendActivePromosToEvents(newEventIds: string[]) {
+    const added = filterValidGuids(newEventIds);
+    if (!added.length) {
+      return;
+    }
+
+    const activePromos = await this.databaseService.db
+      .select({
+        id: promos.id,
+        code: promos.code,
+        eventId: promos.eventId,
+        eventIds: promos.eventIds
+      })
+      .from(promos)
+      .where(
+        and(eq(promos.isUsed, false), gt(promos.expiredAt, getArmeniaNow()))
+      );
+
+    this.logger.log(
+      `extendActivePromosToEvents: ${activePromos.length} active promo(s), ${added.length} new event(s)`
+    );
+
+    for (const promo of activePromos) {
+      const existingIds = this.resolvePromoEventIds(promo);
+      const missing = added.filter((id) => !existingIds.includes(id));
+      if (!missing.length) {
+        continue;
+      }
+
+      try {
+        const attached = await this.promoExternalService.attachPromoToEvents({
+          code: promo.code,
+          eventIds: missing
+        });
+        if (!attached.length) {
+          continue;
+        }
+
+        const merged = [...existingIds];
+        for (const id of attached) {
+          if (!merged.includes(id)) {
+            merged.push(id);
+          }
+        }
+
+        await this.databaseService.db
+          .update(promos)
+          .set({
+            eventIds: merged,
+            eventId: merged[0] ?? promo.eventId
+          })
+          .where(eq(promos.id, promo.id));
+
+        this.logger.log(
+          `extendActivePromosToEvents: promo id=${promo.id} code=${promo.code} now covers ${merged.length} event(s)`
+        );
+      } catch (error) {
+        this.logger.error(
+          `extendActivePromosToEvents: FAILED promo id=${promo.id} code=${promo.code}: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }
+  }
+
+  private resolvePromoEventIds(promo: {
+    eventId: string | null;
+    eventIds: string[] | null;
+  }): string[] {
+    const fromJson = Array.isArray(promo.eventIds) ? promo.eventIds : [];
+    const merged = filterValidGuids([
+      ...fromJson,
+      ...(promo.eventId ? [promo.eventId] : [])
+    ]);
+    return [...new Set(merged)];
   }
 
   async getEventById(eventId: string) {
@@ -194,6 +292,7 @@ export class AdminService {
         recipientEmail: promos.recipientEmail,
         recipientRole: promos.recipientRole,
         eventId: promos.eventId,
+        eventIds: promos.eventIds,
         isUsed: promos.isUsed,
         createdAt: promos.createdAt,
         expiredAt: promos.expiredAt
@@ -216,6 +315,7 @@ export class AdminService {
         recipientEmail: promos.recipientEmail,
         recipientRole: promos.recipientRole,
         eventId: promos.eventId,
+        eventIds: promos.eventIds,
         isUsed: promos.isUsed,
         createdAt: promos.createdAt,
         expiredAt: promos.expiredAt

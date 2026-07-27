@@ -1,6 +1,7 @@
 import {
   boolean,
   integer,
+  jsonb,
   pgTable,
   serial,
   timestamp,
@@ -20,7 +21,10 @@ export const promos = pgTable(
     referredId: integer("referred_id").references(() => referred.referredId),
     recipientEmail: varchar("recipient_email", { length: 255 }),
     recipientRole: varchar("recipient_role", { length: 16 }),
+    /** @deprecated Prefer eventIds; kept for older rows / UI. */
     eventId: varchar("event_id", { length: 36 }),
+    /** EventHub event UUIDs this promo code was created on. */
+    eventIds: jsonb("event_ids").$type<string[]>().notNull().default([]),
     isUsed: boolean("is_used").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

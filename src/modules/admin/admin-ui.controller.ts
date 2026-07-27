@@ -774,7 +774,7 @@ export class AdminUiController {
                 <button class="btn-soft" onclick="getById('promos')">Find</button>
               </div>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>promoId</th><th>code</th><th>purpose</th><th>recipientEmail</th><th>recipientRole</th><th>referredEmail</th><th>isUsed</th><th>expiredAt</th><th>actions</th></tr></thead><tbody id="promosRows"><tr><td colspan="9" class="empty">No data yet</td></tr></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>promoId</th><th>code</th><th>purpose</th><th>recipientEmail</th><th>recipientRole</th><th>referredEmail</th><th>eventIds</th><th>isUsed</th><th>expiredAt</th><th>actions</th></tr></thead><tbody id="promosRows"><tr><td colspan="10" class="empty">No data yet</td></tr></tbody></table></div>
           </section>
 
           <section class="entity" data-entity="referrals">
@@ -948,6 +948,7 @@ export class AdminUiController {
             "recipientEmail",
             "recipientRole",
             "referredEmail",
+            "eventIds",
             "isUsed",
             "expiredAt"
           ],
@@ -1258,6 +1259,16 @@ export class AdminUiController {
           if (val === "referrer") return badge("badge-violet", "referrer");
           if (val === "referred") return badge("badge-blue", "referred");
           return val ? badge("badge-slate", String(val)) : "";
+        }
+        if (col === "eventIds") {
+          if (!Array.isArray(val) || val.length === 0) return "0";
+          return (
+            '<span title="' +
+            String(val.join("\n")).replace(/"/g, "&quot;") +
+            '">' +
+            val.length +
+            " event(s)</span>"
+          );
         }
         if (col === "role") {
           return val === "Admin"
