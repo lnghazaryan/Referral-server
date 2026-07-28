@@ -683,7 +683,7 @@ export class AdminUiController {
         </div>
       </header>
 
-      <section id="authCard" class="auth-card hidden">
+      <section id="authCard" class="auth-card">
         <div class="auth-tabs">
           <button class="auth-tab active" id="authTabLogin" onclick="setAuthMode('login')">Login</button>
           <button class="auth-tab" id="authTabSignup" onclick="setAuthMode('signup')">Sign up</button>
@@ -1195,6 +1195,7 @@ export class AdminUiController {
         const res = await fetch("/api" + path, {
           method: method,
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
           body: body ? JSON.stringify(body) : undefined
         });
         const text = await res.text();
@@ -1264,7 +1265,7 @@ export class AdminUiController {
           if (!Array.isArray(val) || val.length === 0) return "0";
           return (
             '<span title="' +
-            String(val.join("\n")).replace(/"/g, "&quot;") +
+            String(val.join("\\n")).replace(/"/g, "&quot;") +
             '">' +
             val.length +
             " event(s)</span>"
