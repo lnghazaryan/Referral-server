@@ -1,26 +1,18 @@
 import {
   getArmeniaNow,
-  getArmeniaStartOfToday,
   isEventDatePast,
   parseEventHubDateTime
 } from "../../common/utils/event-datetime";
-import {
-  EventUrlSlugs,
-  isCinemaCategory
-} from "../../common/utils/event-slug";
 import { filterValidGuids } from "../../common/utils/guid";
-import { buildEventI18n } from "../../common/utils/event-i18n";
 import { DatabaseService } from "../database/database.service";
-import {
-  EventHubEventsService,
-  EventHubSearchItem
-} from "../external/eventhub/eventhub-events.service";
+import { EventHubEventsService } from "../external/eventhub/eventhub-events.service";
 import { PromoExternalService } from "../external/promo-external.service";
+import { EventsMaintenanceService } from "../events/events-maintenance.service";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { SyncEventsDto } from "./dto/sync-events.dto";
 import { events, promos, referred } from "../../db/schema";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { and, eq, gt, inArray, lt, notInArray } from "drizzle-orm";
+import { and, eq, gt, inArray, notInArray } from "drizzle-orm";
 
 @Injectable()
 export class AdminService {
@@ -29,7 +21,8 @@ export class AdminService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly eventHubEventsService: EventHubEventsService,
-    private readonly promoExternalService: PromoExternalService
+    private readonly promoExternalService: PromoExternalService,
+    private readonly eventsMaintenanceService: EventsMaintenanceService
   ) {}
 
   async listEvents() {
@@ -37,7 +30,7 @@ export class AdminService {
   }
 
   async listExternalEventsCatalog() {
-    await this.removePastEvents();
+    await this.eventsMaintenanceService.reconcileStoredEvents();
 
     const catalog = await this.eventHubEventsService.searchEvents();
     const now = getArmeniaNow();
@@ -70,7 +63,7 @@ export class AdminService {
   }
 
   async syncEvents(dto: SyncEventsDto) {
-    await this.removePastEvents();
+    await this.eventsMaintenanceService.reconcileStoredEvents();
 
     const [catalogAm, catalogRu, catalogEn] = await Promise.all([
       this.eventHubEventsService.searchEvents("am"),
@@ -127,7 +120,7 @@ export class AdminService {
         .where(eq(events.eventId, item.eventId))
         .limit(1);
 
-      const values = this.mapEventHubItem(
+      const values = this.eventsMaintenanceService.mapEventHubItem(
         item,
         urlSlugsByEventId.get(item.eventId),
         byLang
@@ -261,12 +254,6 @@ export class AdminService {
     return created;
   }
 
-  async removePastEvents() {
-    await this.databaseService.db
-      .delete(events)
-      .where(lt(events.date, getArmeniaStartOfToday()));
-  }
-
   private async removeEventsAbsentFromCatalog(catalogEventIds: string[]) {
     if (catalogEventIds.length === 0) {
       await this.databaseService.db.delete(events);
@@ -330,34 +317,5 @@ export class AdminService {
     }
 
     return promo;
-  }
-
-  private mapEventHubItem(
-    item: EventHubSearchItem,
-    urlSlugs: EventUrlSlugs | undefined,
-    byLang: {
-      am: Map<string, EventHubSearchItem>;
-      ru: Map<string, EventHubSearchItem>;
-      en: Map<string, EventHubSearchItem>;
-    }
-  ) {
-    const i18n = buildEventI18n(item.eventId, byLang);
-    const primary = i18n.hy;
-    return {
-      eventId: item.eventId,
-      name: primary.name,
-      date: parseEventHubDateTime(item.eventDateTime),
-      venue: primary.venue,
-      category: primary.category,
-      data: {
-        ...item,
-        i18n,
-        urlSlugs: urlSlugs ?? {
-          nameSlug: "",
-          categorySlug: "events",
-          isCinema: isCinemaCategory(item.categoryId)
-        }
-      }
-    };
   }
 }

@@ -267,6 +267,22 @@ Production image uses `npm run db:migrate:prod` via `docker-entrypoint.sh`.
 
 ---
 
+## Background jobs
+
+Stored events are reconciled against EventHub Search:
+
+1. If a saved `eventId` still appears with an upcoming date → update
+   name / date / venue / full payload.
+2. Otherwise → remove the row.
+
+This runs:
+
+- On admin catalog/sync and promo generation
+- On public events load (only for past-dated rows)
+- On a background scheduler at **10:00 and 22:00 Asia/Yerevan**
+
+---
+
 ## Troubleshooting
 
 | Symptom | Check |

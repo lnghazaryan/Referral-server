@@ -5,8 +5,7 @@ import {
   Logger,
   NotFoundException
 } from "@nestjs/common";
-import { and, eq, lt } from "drizzle-orm";
-import { getArmeniaStartOfToday } from "../../common/utils/event-datetime";
+import { and, eq } from "drizzle-orm";
 import {
   buildEventHubRelativePath,
   EventUrlSlugs
@@ -23,6 +22,7 @@ import {
 } from "../external/promo-external.service";
 import { MailSenderService } from "../external/mail-sender.service";
 import { DatabaseService } from "../database/database.service";
+import { EventsMaintenanceService } from "../events/events-maintenance.service";
 import { CreateReferredDto } from "./dto/create-referred.dto";
 import { ReferredPaymentDto } from "./dto/referred-payment.dto";
 import { RegisterReferralDto } from "./dto/register-referral.dto";
@@ -39,7 +39,8 @@ export class ReferralService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly promoExternalService: PromoExternalService,
-    private readonly mailSenderService: MailSenderService
+    private readonly mailSenderService: MailSenderService,
+    private readonly eventsMaintenanceService: EventsMaintenanceService
   ) {}
 
   async listReferrals() {
@@ -88,7 +89,9 @@ export class ReferralService {
   }
 
   async listPublicEvents(lang?: string) {
-    await this.removePastEvents();
+    await this.eventsMaintenanceService.reconcileStoredEvents({
+      onlyPast: true
+    });
 
     const locale = resolveEventLocale(lang);
     const list = await this.databaseService.db.select().from(events);
@@ -697,7 +700,7 @@ export class ReferralService {
   }
 
   private async loadPromoEventIds(): Promise<string[]> {
-    await this.removePastEvents();
+    await this.eventsMaintenanceService.reconcileStoredEvents();
 
     const eventList = await this.databaseService.db.select().from(events);
     const eventIds = filterValidGuids(
@@ -713,12 +716,6 @@ export class ReferralService {
     }
 
     return eventIds;
-  }
-
-  private async removePastEvents() {
-    await this.databaseService.db
-      .delete(events)
-      .where(lt(events.date, getArmeniaStartOfToday()));
   }
 
   private async generateUniqueReferralCode() {

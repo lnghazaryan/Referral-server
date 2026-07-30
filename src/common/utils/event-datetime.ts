@@ -63,6 +63,31 @@ export function getArmeniaStartOfToday(now: Date = getArmeniaNow()): Date {
 }
 
 /**
+ * Next Asia/Yerevan wall-clock slot from `hours` (e.g. [10, 22]).
+ * If all of today's slots have passed, returns tomorrow's first hour.
+ */
+export function getNextArmeniaSlot(
+  hours: readonly number[],
+  now: Date = getArmeniaNow()
+): Date {
+  const sortedHours = [...hours].sort((a, b) => a - b);
+  const todayKey = toArmeniaDateKey(now);
+
+  for (const hour of sortedHours) {
+    const hh = String(hour).padStart(2, "0");
+    const slot = new Date(`${todayKey}T${hh}:00:00${ARMENIA_UTC_OFFSET}`);
+    if (slot.getTime() > now.getTime()) {
+      return slot;
+    }
+  }
+
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowKey = toArmeniaDateKey(tomorrow);
+  const firstHour = String(sortedHours[0] ?? 10).padStart(2, "0");
+  return new Date(`${tomorrowKey}T${firstHour}:00:00${ARMENIA_UTC_OFFSET}`);
+}
+
+/**
  * True when the event's Armenia calendar day is before today.
  * Same-day events stay visible regardless of clock time.
  */
