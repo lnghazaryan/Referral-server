@@ -4,12 +4,12 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
-  ApiConflictResponse,
   ApiCreatedResponse,
   ApiExcludeController,
   ApiOkResponse,
@@ -27,6 +27,7 @@ import { AuthGuard } from "../auth/auth.guard";
 import { Roles } from "../auth/roles.decorator";
 import { RolesGuard } from "../auth/roles.guard";
 import { AdminService } from "./admin.service";
+import { AnalyticsQueryDto } from "./dto/analytics-query.dto";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { SyncEventsDto } from "./dto/sync-events.dto";
 
@@ -36,6 +37,58 @@ import { SyncEventsDto } from "./dto/sync-events.dto";
 @UseGuards(AuthGuard, RolesGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  @ApiOperation({
+    summary: "Referral analytics totals and time series (daily/weekly/monthly)"
+  })
+  @ApiOkResponse({
+    schema: {
+      type: "object",
+      properties: {
+        granularity: {
+          type: "string",
+          enum: ["daily", "weekly", "monthly"]
+        },
+        from: { type: "string", format: "date-time" },
+        to: { type: "string", format: "date-time" },
+        totals: {
+          type: "object",
+          properties: {
+            referrers: { type: "number" },
+            referred: { type: "number" },
+            paidConversions: { type: "number" },
+            conversionRate: { type: "number" },
+            revenue: { type: "number" },
+            signupPromos: { type: "number" },
+            rewardPromos: { type: "number" },
+            usedPromos: { type: "number" },
+            promoRedemptionRate: { type: "number" }
+          }
+        },
+        series: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              period: { type: "string" },
+              label: { type: "string" },
+              referrers: { type: "number" },
+              referred: { type: "number" },
+              paidConversions: { type: "number" },
+              revenue: { type: "number" },
+              signupPromos: { type: "number" },
+              rewardPromos: { type: "number" },
+              usedPromos: { type: "number" }
+            }
+          }
+        }
+      }
+    }
+  })
+  @Get("analytics")
+  getAnalytics(@Query() query: AnalyticsQueryDto) {
+    return this.adminService.getAnalytics(query);
+  }
 
   @ApiOperation({ summary: "Get EventHub catalog with local selection state" })
   @ApiOkResponse({

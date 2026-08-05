@@ -533,6 +533,99 @@ export class AdminUiController {
         color: var(--primary-hover);
         box-shadow: var(--shadow-sm);
       }
+      .analytics-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+      .metric-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px 16px;
+        background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+        box-shadow: var(--shadow-sm);
+        min-width: 0;
+      }
+      .metric-card .metric-label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        margin-bottom: 6px;
+      }
+      .metric-card .metric-value {
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+      }
+      .metric-card .metric-hint {
+        color: var(--muted);
+        font-size: 11.5px;
+        margin-top: 4px;
+      }
+      .analytics-chart {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+        background: #fff;
+      }
+      .analytics-chart h3 {
+        margin: 0 0 12px;
+        font-size: 15px;
+      }
+      .chart-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+        height: 160px;
+        padding-top: 8px;
+        overflow-x: auto;
+      }
+      .chart-bar-col {
+        flex: 1 0 28px;
+        min-width: 28px;
+        max-width: 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100%;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+      .chart-bar {
+        width: 100%;
+        border-radius: 6px 6px 2px 2px;
+        background: linear-gradient(180deg, #818cf8, #6366f1);
+        min-height: 2px;
+        transition: height 0.2s ease;
+      }
+      .chart-bar-label {
+        font-size: 10px;
+        color: var(--muted);
+        text-align: center;
+        white-space: nowrap;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .chart-bar-value {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      @media (max-width: 980px) {
+        .analytics-metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 560px) {
+        .analytics-metrics {
+          grid-template-columns: 1fr;
+        }
+      }
       .content-group {
         border: 1px solid var(--line);
         border-radius: 14px;
@@ -837,6 +930,26 @@ export class AdminUiController {
             </div>
           </section>
 
+          <section class="entity" data-entity="analytics">
+            <h2>Analytics</h2>
+            <div class="content-intro">
+              Referral funnel metrics over time. Switch between daily, weekly,
+              and monthly views to track referrers, signups, paid conversions,
+              revenue, and promo activity.
+            </div>
+            <div class="top-actions">
+              <div class="content-lang-pills" id="analyticsGranularityPills">
+                <button type="button" class="lang-pill active" data-granularity="daily" onclick="setAnalyticsGranularity('daily')">Daily</button>
+                <button type="button" class="lang-pill" data-granularity="weekly" onclick="setAnalyticsGranularity('weekly')">Weekly</button>
+                <button type="button" class="lang-pill" data-granularity="monthly" onclick="setAnalyticsGranularity('monthly')">Monthly</button>
+              </div>
+              <div class="toolbar">
+                <button class="btn-soft" onclick="loadAnalytics(true)">Refresh</button>
+              </div>
+            </div>
+            <div id="analyticsRoot"><div class="empty">Loading…</div></div>
+          </section>
+
           <section class="entity" data-entity="content">
             <h2>Landing page text</h2>
             <div class="content-intro">
@@ -908,6 +1021,9 @@ export class AdminUiController {
       let contentLoadedLocale = null;
       let currentContentLocale = "hy";
       let settingsCache = null;
+      let analyticsCache = null;
+      let analyticsGranularity = "daily";
+      let analyticsLoading = false;
 
       function matchesQuery(row, query) {
         if (!query) return true;
@@ -1004,6 +1120,10 @@ export class AdminUiController {
             }
           ]
         },
+        analytics: {
+          label: "Analytics",
+          custom: true
+        },
         content: {
           label: "Content",
           custom: true
@@ -1037,6 +1157,9 @@ export class AdminUiController {
         document.querySelectorAll(".nav-btn").forEach(function (btn) {
           btn.classList.toggle("active", btn.getAttribute("data-key") === key);
         });
+        if (key === "analytics") {
+          loadAnalytics();
+        }
         if (key === "content" && !contentCache[currentContentLocale]) {
           loadContent();
         }
@@ -2168,6 +2291,224 @@ export class AdminUiController {
             "</div>"
           );
         }).join("");
+      }
+
+      function setAnalyticsGranularity(granularity) {
+        analyticsGranularity = granularity;
+        analyticsCache = null;
+        document
+          .querySelectorAll("#analyticsGranularityPills .lang-pill")
+          .forEach(function (btn) {
+            btn.classList.toggle(
+              "active",
+              btn.getAttribute("data-granularity") === granularity
+            );
+          });
+        loadAnalytics(true);
+      }
+
+      function formatMetricNumber(value) {
+        const num = Number(value || 0);
+        if (Number.isNaN(num)) return "0";
+        return num.toLocaleString("en-US", {
+          maximumFractionDigits: 2
+        });
+      }
+
+      function formatMoney(value) {
+        return formatMetricNumber(value);
+      }
+
+      function renderAnalytics() {
+        const root = document.getElementById("analyticsRoot");
+        if (!root) return;
+        const data = analyticsCache;
+        if (!data) {
+          root.innerHTML = "<div class='empty'>No analytics loaded</div>";
+          return;
+        }
+        const totals = data.totals || {};
+        const series = data.series || [];
+        const maxReferred = Math.max.apply(
+          null,
+          [1].concat(
+            series.map(function (row) {
+              return Number(row.referred || 0);
+            })
+          )
+        );
+
+        const metrics = [
+          {
+            label: "Referrers",
+            value: formatMetricNumber(totals.referrers),
+            hint: "New referral codes"
+          },
+          {
+            label: "Referred signups",
+            value: formatMetricNumber(totals.referred),
+            hint: "Friends who signed up"
+          },
+          {
+            label: "Paid conversions",
+            value: formatMetricNumber(totals.paidConversions),
+            hint: (totals.conversionRate || 0) + "% of signups"
+          },
+          {
+            label: "Revenue",
+            value: formatMoney(totals.revenue),
+            hint: "Sum of paid buyPrice"
+          },
+          {
+            label: "Signup promos",
+            value: formatMetricNumber(totals.signupPromos),
+            hint: "Issued to referred users"
+          },
+          {
+            label: "Reward promos",
+            value: formatMetricNumber(totals.rewardPromos),
+            hint: "Issued to referrers"
+          },
+          {
+            label: "Promos used",
+            value: formatMetricNumber(totals.usedPromos),
+            hint: (totals.promoRedemptionRate || 0) + "% redemption"
+          },
+          {
+            label: "Periods",
+            value: formatMetricNumber(series.length),
+            hint: (data.granularity || analyticsGranularity) + " buckets"
+          }
+        ];
+
+        const metricsHtml =
+          "<div class='analytics-metrics'>" +
+          metrics
+            .map(function (metric) {
+              return (
+                "<div class='metric-card'>" +
+                "<div class='metric-label'>" +
+                metric.label +
+                "</div>" +
+                "<div class='metric-value'>" +
+                metric.value +
+                "</div>" +
+                "<div class='metric-hint'>" +
+                metric.hint +
+                "</div>" +
+                "</div>"
+              );
+            })
+            .join("") +
+          "</div>";
+
+        const chartHtml =
+          series.length === 0
+            ? "<div class='empty'>No data in this range</div>"
+            : "<div class='analytics-chart'><h3>Referred signups over time</h3>" +
+              "<div class='chart-bars'>" +
+              series
+                .map(function (row) {
+                  const value = Number(row.referred || 0);
+                  const height = Math.max(
+                    2,
+                    Math.round((value / maxReferred) * 120)
+                  );
+                  return (
+                    "<div class='chart-bar-col' title='" +
+                    String(row.label || "") +
+                    ": " +
+                    value +
+                    "'>" +
+                    "<div class='chart-bar-value'>" +
+                    (value > 0 ? value : "") +
+                    "</div>" +
+                    "<div class='chart-bar' style='height:" +
+                    height +
+                    "px'></div>" +
+                    "<div class='chart-bar-label'>" +
+                    String(row.label || "") +
+                    "</div>" +
+                    "</div>"
+                  );
+                })
+                .join("") +
+              "</div></div>";
+
+        const tableHtml =
+          "<div class='table-wrap'><table><thead><tr>" +
+          "<th>Period</th><th>Referrers</th><th>Referred</th>" +
+          "<th>Paid</th><th>Revenue</th><th>Signup promos</th>" +
+          "<th>Reward promos</th><th>Used promos</th>" +
+          "</tr></thead><tbody>" +
+          (series.length === 0
+            ? "<tr><td colspan='8' class='empty'>No rows</td></tr>"
+            : series
+                .map(function (row) {
+                  return (
+                    "<tr>" +
+                    "<td>" +
+                    String(row.label || row.period || "") +
+                    "</td>" +
+                    "<td>" +
+                    formatMetricNumber(row.referrers) +
+                    "</td>" +
+                    "<td>" +
+                    formatMetricNumber(row.referred) +
+                    "</td>" +
+                    "<td>" +
+                    formatMetricNumber(row.paidConversions) +
+                    "</td>" +
+                    "<td>" +
+                    formatMoney(row.revenue) +
+                    "</td>" +
+                    "<td>" +
+                    formatMetricNumber(row.signupPromos) +
+                    "</td>" +
+                    "<td>" +
+                    formatMetricNumber(row.rewardPromos) +
+                    "</td>" +
+                    "<td>" +
+                    formatMetricNumber(row.usedPromos) +
+                    "</td>" +
+                    "</tr>"
+                  );
+                })
+                .join("")) +
+          "</tbody></table></div>";
+
+        root.innerHTML = metricsHtml + chartHtml + tableHtml;
+      }
+
+      async function loadAnalytics(force) {
+        if (analyticsLoading) return;
+        if (analyticsCache && !force) {
+          renderAnalytics();
+          return;
+        }
+        analyticsLoading = true;
+        const root = document.getElementById("analyticsRoot");
+        if (root && !analyticsCache) {
+          root.innerHTML = "<div class='empty'>Loading…</div>";
+        }
+        try {
+          const data = await request(
+            "GET",
+            "/admin/analytics?granularity=" +
+              encodeURIComponent(analyticsGranularity)
+          );
+          analyticsCache = data;
+          renderAnalytics();
+          setStatus(true, "Analytics loaded (" + analyticsGranularity + ")");
+        } catch (e) {
+          if (root) {
+            root.innerHTML =
+              "<div class='empty'>Failed to load analytics</div>";
+          }
+          setStatus(false, String(e));
+        } finally {
+          analyticsLoading = false;
+        }
       }
 
       async function loadSettings() {

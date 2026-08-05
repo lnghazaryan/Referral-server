@@ -1,4 +1,5 @@
 import {
+  ARMENIA_TIMEZONE,
   getArmeniaNow,
   isEventDatePast,
   parseEventHubDateTime
@@ -8,11 +9,30 @@ import { DatabaseService } from "../database/database.service";
 import { EventHubEventsService } from "../external/eventhub/eventhub-events.service";
 import { PromoExternalService } from "../external/promo-external.service";
 import { EventsMaintenanceService } from "../events/events-maintenance.service";
+import {
+  AnalyticsGranularity,
+  AnalyticsQueryDto
+} from "./dto/analytics-query.dto";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { SyncEventsDto } from "./dto/sync-events.dto";
-import { events, promos, referred } from "../../db/schema";
+import { events, promos, referrals, referred } from "../../db/schema";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { and, eq, gt, inArray, notInArray } from "drizzle-orm";
+import { and, count, eq, gt, gte, inArray, lte, notInArray, sql, sum } from "drizzle-orm";
+
+type PeriodBucket = {
+  period: string;
+  label: string;
+  referrers: number;
+  referred: number;
+  paidConversions: number;
+  revenue: number;
+  signupPromos: number;
+  rewardPromos: number;
+  usedPromos: number;
+};
+
+type CountRow = { period: Date | string; value: number | string | null };
+type RevenueRow = { period: Date | string; value: number | string | null };
 
 @Injectable()
 export class AdminService {
@@ -317,5 +337,395 @@ export class AdminService {
     }
 
     return promo;
+  }
+
+  async getAnalytics(query: AnalyticsQueryDto) {
+    const granularity: AnalyticsGranularity = query.granularity ?? "daily";
+    const { from, to } = this.resolveAnalyticsRange(
+      granularity,
+      query.from,
+      query.to
+    );
+    const truncUnit =
+      granularity === "daily"
+        ? "day"
+        : granularity === "weekly"
+          ? "week"
+          : "month";
+    const truncReferrals = sql`to_char(date_trunc(${sql.raw(`'${truncUnit}'`)}, ${referrals.createdAt} AT TIME ZONE ${sql.raw(`'${ARMENIA_TIMEZONE}'`)}), 'YYYY-MM-DD')`;
+    const truncReferred = sql`to_char(date_trunc(${sql.raw(`'${truncUnit}'`)}, ${referred.createdAt} AT TIME ZONE ${sql.raw(`'${ARMENIA_TIMEZONE}'`)}), 'YYYY-MM-DD')`;
+    const truncPromos = sql`to_char(date_trunc(${sql.raw(`'${truncUnit}'`)}, ${promos.createdAt} AT TIME ZONE ${sql.raw(`'${ARMENIA_TIMEZONE}'`)}), 'YYYY-MM-DD')`;
+
+    const [
+      referrerRows,
+      referredRows,
+      paidRows,
+      revenueRows,
+      signupPromoRows,
+      rewardPromoRows,
+      usedPromoRows,
+      totalsReferrers,
+      totalsReferred,
+      totalsPaid,
+      totalsRevenue,
+      totalsSignupPromos,
+      totalsRewardPromos,
+      totalsUsedPromos,
+      totalsAllPromos
+    ] = await Promise.all([
+      this.databaseService.db
+        .select({
+          period: truncReferrals.as("period"),
+          value: count()
+        })
+        .from(referrals)
+        .where(and(gte(referrals.createdAt, from), lte(referrals.createdAt, to)))
+        .groupBy(truncReferrals)
+        .orderBy(truncReferrals),
+      this.databaseService.db
+        .select({
+          period: truncReferred.as("period"),
+          value: count()
+        })
+        .from(referred)
+        .where(and(gte(referred.createdAt, from), lte(referred.createdAt, to)))
+        .groupBy(truncReferred)
+        .orderBy(truncReferred),
+      this.databaseService.db
+        .select({
+          period: truncReferred.as("period"),
+          value: count()
+        })
+        .from(referred)
+        .where(
+          and(
+            gte(referred.createdAt, from),
+            lte(referred.createdAt, to),
+            eq(referred.hasPayment, true)
+          )
+        )
+        .groupBy(truncReferred)
+        .orderBy(truncReferred),
+      this.databaseService.db
+        .select({
+          period: truncReferred.as("period"),
+          value: sql<string>`coalesce(${sum(referred.buyPrice)}, 0)`
+        })
+        .from(referred)
+        .where(
+          and(
+            gte(referred.createdAt, from),
+            lte(referred.createdAt, to),
+            eq(referred.hasPayment, true)
+          )
+        )
+        .groupBy(truncReferred)
+        .orderBy(truncReferred),
+      this.databaseService.db
+        .select({
+          period: truncPromos.as("period"),
+          value: count()
+        })
+        .from(promos)
+        .where(
+          and(
+            gte(promos.createdAt, from),
+            lte(promos.createdAt, to),
+            eq(promos.purpose, "signup")
+          )
+        )
+        .groupBy(truncPromos)
+        .orderBy(truncPromos),
+      this.databaseService.db
+        .select({
+          period: truncPromos.as("period"),
+          value: count()
+        })
+        .from(promos)
+        .where(
+          and(
+            gte(promos.createdAt, from),
+            lte(promos.createdAt, to),
+            eq(promos.purpose, "payment_reward")
+          )
+        )
+        .groupBy(truncPromos)
+        .orderBy(truncPromos),
+      this.databaseService.db
+        .select({
+          period: truncPromos.as("period"),
+          value: count()
+        })
+        .from(promos)
+        .where(
+          and(
+            gte(promos.createdAt, from),
+            lte(promos.createdAt, to),
+            eq(promos.isUsed, true)
+          )
+        )
+        .groupBy(truncPromos)
+        .orderBy(truncPromos),
+      this.databaseService.db
+        .select({ value: count() })
+        .from(referrals)
+        .where(and(gte(referrals.createdAt, from), lte(referrals.createdAt, to))),
+      this.databaseService.db
+        .select({ value: count() })
+        .from(referred)
+        .where(and(gte(referred.createdAt, from), lte(referred.createdAt, to))),
+      this.databaseService.db
+        .select({ value: count() })
+        .from(referred)
+        .where(
+          and(
+            gte(referred.createdAt, from),
+            lte(referred.createdAt, to),
+            eq(referred.hasPayment, true)
+          )
+        ),
+      this.databaseService.db
+        .select({
+          value: sql<string>`coalesce(${sum(referred.buyPrice)}, 0)`
+        })
+        .from(referred)
+        .where(
+          and(
+            gte(referred.createdAt, from),
+            lte(referred.createdAt, to),
+            eq(referred.hasPayment, true)
+          )
+        ),
+      this.databaseService.db
+        .select({ value: count() })
+        .from(promos)
+        .where(
+          and(
+            gte(promos.createdAt, from),
+            lte(promos.createdAt, to),
+            eq(promos.purpose, "signup")
+          )
+        ),
+      this.databaseService.db
+        .select({ value: count() })
+        .from(promos)
+        .where(
+          and(
+            gte(promos.createdAt, from),
+            lte(promos.createdAt, to),
+            eq(promos.purpose, "payment_reward")
+          )
+        ),
+      this.databaseService.db
+        .select({ value: count() })
+        .from(promos)
+        .where(
+          and(
+            gte(promos.createdAt, from),
+            lte(promos.createdAt, to),
+            eq(promos.isUsed, true)
+          )
+        ),
+      this.databaseService.db
+        .select({ value: count() })
+        .from(promos)
+        .where(and(gte(promos.createdAt, from), lte(promos.createdAt, to)))
+    ]);
+
+    const series = this.buildAnalyticsSeries(
+      granularity,
+      from,
+      to,
+      referrerRows as CountRow[],
+      referredRows as CountRow[],
+      paidRows as CountRow[],
+      revenueRows as RevenueRow[],
+      signupPromoRows as CountRow[],
+      rewardPromoRows as CountRow[],
+      usedPromoRows as CountRow[]
+    );
+
+    const referrersTotal = Number(totalsReferrers[0]?.value ?? 0);
+    const referredTotal = Number(totalsReferred[0]?.value ?? 0);
+    const paidTotal = Number(totalsPaid[0]?.value ?? 0);
+    const revenueTotal = Number(totalsRevenue[0]?.value ?? 0);
+    const signupPromosTotal = Number(totalsSignupPromos[0]?.value ?? 0);
+    const rewardPromosTotal = Number(totalsRewardPromos[0]?.value ?? 0);
+    const usedPromosTotal = Number(totalsUsedPromos[0]?.value ?? 0);
+    const allPromosTotal = Number(totalsAllPromos[0]?.value ?? 0);
+
+    return {
+      granularity,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      totals: {
+        referrers: referrersTotal,
+        referred: referredTotal,
+        paidConversions: paidTotal,
+        conversionRate:
+          referredTotal > 0
+            ? Math.round((paidTotal / referredTotal) * 1000) / 10
+            : 0,
+        revenue: revenueTotal,
+        signupPromos: signupPromosTotal,
+        rewardPromos: rewardPromosTotal,
+        usedPromos: usedPromosTotal,
+        promoRedemptionRate:
+          allPromosTotal > 0
+            ? Math.round((usedPromosTotal / allPromosTotal) * 1000) / 10
+            : 0
+      },
+      series
+    };
+  }
+
+  private resolveAnalyticsRange(
+    granularity: AnalyticsGranularity,
+    fromRaw?: string,
+    toRaw?: string
+  ) {
+    const now = getArmeniaNow();
+    const to = toRaw ? new Date(toRaw) : now;
+    let from: Date;
+
+    if (fromRaw) {
+      from = new Date(fromRaw);
+    } else if (granularity === "daily") {
+      from = new Date(to);
+      from.setUTCDate(from.getUTCDate() - 29);
+    } else if (granularity === "weekly") {
+      from = new Date(to);
+      from.setUTCDate(from.getUTCDate() - 7 * 11);
+    } else {
+      from = new Date(to);
+      from.setUTCMonth(from.getUTCMonth() - 11);
+    }
+
+    from.setUTCHours(0, 0, 0, 0);
+    const end = new Date(to);
+    end.setUTCHours(23, 59, 59, 999);
+
+    return { from, to: end };
+  }
+
+  private buildAnalyticsSeries(
+    granularity: AnalyticsGranularity,
+    from: Date,
+    to: Date,
+    referrerRows: CountRow[],
+    referredRows: CountRow[],
+    paidRows: CountRow[],
+    revenueRows: RevenueRow[],
+    signupPromoRows: CountRow[],
+    rewardPromoRows: CountRow[],
+    usedPromoRows: CountRow[]
+  ): PeriodBucket[] {
+    const referrersMap = this.toPeriodMap(referrerRows);
+    const referredMap = this.toPeriodMap(referredRows);
+    const paidMap = this.toPeriodMap(paidRows);
+    const revenueMap = this.toPeriodMap(revenueRows);
+    const signupMap = this.toPeriodMap(signupPromoRows);
+    const rewardMap = this.toPeriodMap(rewardPromoRows);
+    const usedMap = this.toPeriodMap(usedPromoRows);
+
+    const periods = this.enumeratePeriods(granularity, from, to);
+    return periods.map((periodDate) => {
+      const key = this.periodKey(periodDate);
+      return {
+        period: key,
+        label: this.formatPeriodLabel(granularity, periodDate),
+        referrers: referrersMap.get(key) ?? 0,
+        referred: referredMap.get(key) ?? 0,
+        paidConversions: paidMap.get(key) ?? 0,
+        revenue: revenueMap.get(key) ?? 0,
+        signupPromos: signupMap.get(key) ?? 0,
+        rewardPromos: rewardMap.get(key) ?? 0,
+        usedPromos: usedMap.get(key) ?? 0
+      };
+    });
+  }
+
+  private toPeriodMap(rows: Array<{ period: Date | string; value: unknown }>) {
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      const key =
+        typeof row.period === "string"
+          ? row.period.slice(0, 10)
+          : this.periodKey(row.period);
+      map.set(key, Number(row.value ?? 0));
+    }
+    return map;
+  }
+
+  private periodKey(value: Date | string) {
+    const date = value instanceof Date ? value : new Date(value);
+    return date.toISOString().slice(0, 10);
+  }
+
+  private enumeratePeriods(
+    granularity: AnalyticsGranularity,
+    from: Date,
+    to: Date
+  ) {
+    const cursor = new Date(from);
+    cursor.setUTCHours(0, 0, 0, 0);
+
+    if (granularity === "weekly") {
+      // Align to Monday (Postgres date_trunc('week') uses Monday).
+      const day = cursor.getUTCDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      cursor.setUTCDate(cursor.getUTCDate() + diff);
+    } else if (granularity === "monthly") {
+      cursor.setUTCDate(1);
+    }
+
+    const periods: Date[] = [];
+    const endMs = to.getTime();
+    while (cursor.getTime() <= endMs) {
+      periods.push(new Date(cursor));
+      if (granularity === "daily") {
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      } else if (granularity === "weekly") {
+        cursor.setUTCDate(cursor.getUTCDate() + 7);
+      } else {
+        cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      }
+    }
+    return periods;
+  }
+
+  private formatPeriodLabel(
+    granularity: AnalyticsGranularity,
+    date: Date
+  ) {
+    if (granularity === "monthly") {
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC"
+      });
+    }
+    if (granularity === "weekly") {
+      const end = new Date(date);
+      end.setUTCDate(end.getUTCDate() + 6);
+      return (
+        date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          timeZone: "UTC"
+        }) +
+        " – " +
+        end.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          timeZone: "UTC"
+        })
+      );
+    }
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC"
+    });
   }
 }
