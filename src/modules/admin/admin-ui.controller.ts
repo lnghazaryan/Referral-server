@@ -411,6 +411,64 @@ export class AdminUiController {
         font-weight: 700;
       }
 
+      th.sortable {
+        cursor: pointer;
+        user-select: none;
+      }
+
+      th.sortable:hover {
+        background: var(--primary-soft);
+        color: var(--primary-hover);
+      }
+
+      th .sort-arrow {
+        margin-left: 5px;
+        font-size: 9px;
+        opacity: 0.3;
+      }
+
+      th.sorted {
+        color: var(--primary-hover);
+      }
+
+      th.sorted .sort-arrow {
+        opacity: 1;
+      }
+
+      .filter-bar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        margin-bottom: 12px;
+      }
+
+      .filter-bar:empty {
+        display: none;
+      }
+
+      .filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .filter-field label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .filter-field select {
+        width: auto;
+        min-width: 160px;
+        max-width: 260px;
+        margin: 0;
+        padding: 7px 9px;
+      }
+
       tbody tr:nth-child(even) td {
         background: #fbfcfe;
       }
@@ -845,18 +903,10 @@ export class AdminUiController {
                 <input id="eventsCatalogSearch" class="search-input" placeholder="Search name, venue, category..." oninput="applyCatalogFilter()" />
               </div>
             </div>
+            <div class="filter-bar" id="eventsCatalogFilters"></div>
             <div class="table-wrap">
               <table>
-                <thead>
-                  <tr>
-                    <th style="width:44px"></th>
-                    <th style="width:74px">Image</th>
-                    <th>Event</th>
-                    <th>Date</th>
-                    <th>Venue</th>
-                    <th>Category</th>
-                  </tr>
-                </thead>
+                <thead id="eventsCatalogHead"></thead>
                 <tbody id="eventsCatalogRows">
                   <tr><td colspan="6" class="empty">No data yet</td></tr>
                 </tbody>
@@ -868,17 +918,10 @@ export class AdminUiController {
                 <input id="eventsSearch" class="search-input" placeholder="Search saved events..." oninput="applyFilter('events')" />
               </div>
             </div>
+            <div class="filter-bar" id="eventsFilters"></div>
             <div class="table-wrap">
               <table>
-                <thead>
-                  <tr>
-                    <th>eventId</th>
-                    <th>name</th>
-                    <th>date</th>
-                    <th>venue</th>
-                    <th>category</th>
-                  </tr>
-                </thead>
+                <thead id="eventsHead"></thead>
                 <tbody id="eventsRows">
                   <tr><td colspan="5" class="empty">No data yet</td></tr>
                 </tbody>
@@ -899,7 +942,8 @@ export class AdminUiController {
                 <button class="btn-soft" onclick="getById('promos')">Find</button>
               </div>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>promoId</th><th>code</th><th>purpose</th><th>recipientEmail</th><th>recipientRole</th><th>referredEmail</th><th>eventIds</th><th>isUsed</th><th>expiredAt</th><th>actions</th></tr></thead><tbody id="promosRows"><tr><td colspan="10" class="empty">No data yet</td></tr></tbody></table></div>
+            <div class="filter-bar" id="promosFilters"></div>
+            <div class="table-wrap"><table><thead id="promosHead"></thead><tbody id="promosRows"><tr><td colspan="10" class="empty">No data yet</td></tr></tbody></table></div>
           </section>
 
           <section class="entity" data-entity="referrals">
@@ -915,7 +959,8 @@ export class AdminUiController {
                 <button class="btn-soft" onclick="getById('referrals')">Find</button>
               </div>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>referralId</th><th>email</th><th>phone</th><th>referralCode</th><th>eventId</th><th>createdAt</th></tr></thead><tbody id="referralsRows"><tr><td colspan="6" class="empty">No data yet</td></tr></tbody></table></div>
+            <div class="filter-bar" id="referralsFilters"></div>
+            <div class="table-wrap"><table><thead id="referralsHead"></thead><tbody id="referralsRows"><tr><td colspan="6" class="empty">No data yet</td></tr></tbody></table></div>
           </section>
 
           <section class="entity" data-entity="referred">
@@ -937,7 +982,8 @@ export class AdminUiController {
               booking before joining. New sign-ups are checked automatically;
               older records show a <b>Check</b> button.
             </div>
-            <div class="table-wrap"><table><thead><tr><th>referredId</th><th>email</th><th>phone</th><th>referralCode</th><th>eventId</th><th>referrerEmail</th><th>referrerPhone</th><th>hasPayment</th><th>buyPrice</th><th>customer</th><th>createdAt</th><th>actions</th></tr></thead><tbody id="referredRows"><tr><td colspan="12" class="empty">No data yet</td></tr></tbody></table></div>
+            <div class="filter-bar" id="referredFilters"></div>
+            <div class="table-wrap"><table><thead id="referredHead"></thead><tbody id="referredRows"><tr><td colspan="12" class="empty">No data yet</td></tr></tbody></table></div>
           </section>
 
           <section class="entity" data-entity="users">
@@ -951,16 +997,10 @@ export class AdminUiController {
                 <input id="usersSearch" class="search-input" placeholder="Search username, role..." oninput="applyUsersFilter()" />
               </div>
             </div>
+            <div class="filter-bar" id="usersFilters"></div>
             <div class="table-wrap">
               <table>
-                <thead>
-                  <tr>
-                    <th>id</th>
-                    <th>username</th>
-                    <th>role</th>
-                    <th>actions</th>
-                  </tr>
-                </thead>
+                <thead id="usersHead"></thead>
                 <tbody id="usersRows">
                   <tr><td colspan="4" class="empty">No users loaded</td></tr>
                 </tbody>
@@ -1077,9 +1117,331 @@ export class AdminUiController {
         const input = document.getElementById(entity + "Search");
         const query = input ? input.value.trim() : "";
         const rows = (tableCache[entity] || []).filter(function (row) {
-          return matchesQuery(row, query);
+          return matchesQuery(row, query) && matchesFilters(entity, row);
         });
-        renderRows(entity, rows);
+        renderRows(entity, sortRows(entity, rows));
+      }
+
+      /* ---- Sorting and dropdown filters shared by every table ---- */
+
+      const CATALOG_TABLE = "eventsCatalog";
+      const AUTO_FILTER_MAX_OPTIONS = 60;
+      const tableSort = {};
+      const tableFilters = {};
+
+      const COLUMN_LABELS = { customerType: "customer" };
+
+      const NUMERIC_COLUMNS = [
+        "id",
+        "promoId",
+        "referralId",
+        "referredId",
+        "buyPrice",
+        "eventIds",
+        "priorBookingCount",
+        "totalBookingCount"
+      ];
+      const DATE_COLUMNS = [
+        "createdAt",
+        "expiredAt",
+        "date",
+        "eventDateTime",
+        "firstBookingDate",
+        "bookingCheckedAt"
+      ];
+      const BOOLEAN_COLUMNS = ["hasPayment", "isUsed", "isSelected"];
+
+      /* Columns with a known, fixed set of values get a dropdown. Columns
+         listed in tableFilterColumns without an entry here get their options
+         derived from the loaded rows instead. */
+      const STATIC_FILTER_OPTIONS = {
+        hasPayment: [
+          { value: "true", label: "Paid" },
+          { value: "false", label: "Not paid" }
+        ],
+        isUsed: [
+          { value: "true", label: "Used" },
+          { value: "false", label: "Not used" }
+        ],
+        isSelected: [
+          { value: "true", label: "Selected" },
+          { value: "false", label: "Not selected" }
+        ],
+        purpose: [
+          { value: "signup", label: "signup" },
+          { value: "payment_reward", label: "reward" }
+        ],
+        recipientRole: [
+          { value: "referred", label: "referred" },
+          { value: "referrer", label: "referrer" }
+        ],
+        role: [
+          { value: "Guest", label: "Guest" },
+          { value: "Admin", label: "Admin" }
+        ],
+        customerType: [
+          { value: "new", label: "New" },
+          { value: "existing", label: "Already had bookings" },
+          { value: "unchecked", label: "Not checked" }
+        ]
+      };
+
+      const tableFilterColumns = {
+        events: ["category", "venue"],
+        promos: ["purpose", "recipientRole", "isUsed"],
+        referrals: ["eventId"],
+        referred: ["hasPayment", "customerType", "referrerEmail"],
+        users: ["role"],
+        eventsCatalog: ["eventCategory", "venue", "isSelected"]
+      };
+
+      function escapeHtml(value) {
+        return String(value === null || value === undefined ? "" : value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function tableColumns(entity) {
+        if (entity === CATALOG_TABLE) {
+          return [
+            { key: "__select", label: "", sortable: false, width: "44px" },
+            { key: "imageUrl", label: "Image", sortable: false, width: "74px" },
+            { key: "eventName", label: "Event" },
+            { key: "eventDateTime", label: "Date" },
+            { key: "venue", label: "Venue" },
+            { key: "eventCategory", label: "Category" }
+          ];
+        }
+        const cfg = entityConfig[entity];
+        if (!cfg || !cfg.columns) {
+          return [];
+        }
+        const columns = cfg.columns.map(function (key) {
+          return { key: key, label: COLUMN_LABELS[key] || key };
+        });
+        if (cfg.resend || cfg.bookingCheck || entity === "users") {
+          columns.push({ key: "__actions", label: "actions", sortable: false });
+        }
+        return columns;
+      }
+
+      function filterSourceRows(entity) {
+        if (entity === "users") return usersCache || [];
+        if (entity === CATALOG_TABLE) return catalogCache || [];
+        return tableCache[entity] || [];
+      }
+
+      function applyTableView(entity) {
+        if (entity === "users") {
+          applyUsersFilter();
+          return;
+        }
+        if (entity === CATALOG_TABLE) {
+          applyCatalogFilter();
+          return;
+        }
+        applyFilter(entity);
+      }
+
+      function setSort(entity, column) {
+        const current = tableSort[entity];
+        tableSort[entity] =
+          current && current.column === column
+            ? { column: column, dir: current.dir === "asc" ? "desc" : "asc" }
+            : { column: column, dir: "asc" };
+        renderTableHead(entity);
+        applyTableView(entity);
+      }
+
+      function renderTableHead(entity) {
+        const head = document.getElementById(entity + "Head");
+        if (!head) return;
+        const sort = tableSort[entity];
+        head.innerHTML =
+          "<tr>" +
+          tableColumns(entity)
+            .map(function (col) {
+              const width = col.width ? " style='width:" + col.width + "'" : "";
+              if (col.sortable === false) {
+                return "<th" + width + ">" + escapeHtml(col.label) + "</th>";
+              }
+              const isSorted = sort && sort.column === col.key;
+              const arrow = isSorted && sort.dir === "desc" ? "▼" : "▲";
+              return (
+                "<th" + width + " class='sortable" +
+                (isSorted ? " sorted" : "") +
+                "' title='Sort by " + escapeHtml(col.label) +
+                "' onclick='setSort(\\"" + entity + "\\", \\"" + col.key + "\\")'>" +
+                escapeHtml(col.label) +
+                "<span class='sort-arrow'>" + arrow + "</span></th>"
+              );
+            })
+            .join("") +
+          "</tr>";
+      }
+
+      function customerTypeKey(row) {
+        if (!row || row.isNewCustomer === null || row.isNewCustomer === undefined) {
+          return "unchecked";
+        }
+        return row.isNewCustomer === true ? "new" : "existing";
+      }
+
+      function cellSortValue(column, row) {
+        if (column === "customerType") {
+          return customerTypeKey(row);
+        }
+        const value = row ? row[column] : null;
+        if (Array.isArray(value)) {
+          return value.length;
+        }
+        if (BOOLEAN_COLUMNS.indexOf(column) !== -1) {
+          return value === true ? 1 : 0;
+        }
+        if (NUMERIC_COLUMNS.indexOf(column) !== -1) {
+          const num = Number(value);
+          return Number.isFinite(num) ? num : -Infinity;
+        }
+        if (DATE_COLUMNS.indexOf(column) !== -1) {
+          const time = Date.parse(value);
+          return Number.isFinite(time) ? time : -Infinity;
+        }
+        return String(value === null || value === undefined ? "" : value).toLowerCase();
+      }
+
+      function sortRows(entity, rows) {
+        const sort = tableSort[entity];
+        if (!sort || !sort.column) {
+          return rows;
+        }
+        const factor = sort.dir === "desc" ? -1 : 1;
+        return rows.slice().sort(function (left, right) {
+          const a = cellSortValue(sort.column, left);
+          const b = cellSortValue(sort.column, right);
+          if (typeof a === "number" && typeof b === "number") {
+            return (a - b) * factor;
+          }
+          return (
+            String(a).localeCompare(String(b), undefined, { numeric: true }) *
+            factor
+          );
+        });
+      }
+
+      function filterValueForColumn(column, row) {
+        if (column === "customerType") {
+          return customerTypeKey(row);
+        }
+        const value = row ? row[column] : null;
+        if (typeof value === "boolean") {
+          return value ? "true" : "false";
+        }
+        return value === null || value === undefined ? "" : String(value);
+      }
+
+      function matchesFilters(entity, row) {
+        const filters = tableFilters[entity] || {};
+        return Object.keys(filters).every(function (column) {
+          if (!filters[column]) return true;
+          return filterValueForColumn(column, row) === filters[column];
+        });
+      }
+
+      function filterOptions(entity, column) {
+        if (STATIC_FILTER_OPTIONS[column]) {
+          return STATIC_FILTER_OPTIONS[column];
+        }
+        const seen = {};
+        filterSourceRows(entity).forEach(function (row) {
+          const value = filterValueForColumn(column, row);
+          if (value) {
+            seen[value] = true;
+          }
+        });
+        const values = Object.keys(seen).sort(function (a, b) {
+          return a.localeCompare(b, undefined, { numeric: true });
+        });
+        // Too many distinct values means it is free-text data, not a fixed set.
+        if (values.length > AUTO_FILTER_MAX_OPTIONS) {
+          return null;
+        }
+        return values.map(function (value) {
+          return { value: value, label: value };
+        });
+      }
+
+      function renderFilterBar(entity) {
+        const host = document.getElementById(entity + "Filters");
+        if (!host) return;
+        const active = tableFilters[entity] || {};
+        const fields = (tableFilterColumns[entity] || [])
+          .map(function (column) {
+            const options = filterOptions(entity, column);
+            if (!options || options.length === 0) {
+              return "";
+            }
+            const selected = active[column] || "";
+            return (
+              "<div class='filter-field'><label>" +
+              escapeHtml(COLUMN_LABELS[column] || column) +
+              "</label><select onchange='setFilter(\\"" + entity + "\\", \\"" +
+              column + "\\", this.value)'><option value=''>All</option>" +
+              options
+                .map(function (option) {
+                  return (
+                    "<option value='" + escapeHtml(option.value) + "'" +
+                    (String(option.value) === String(selected) ? " selected" : "") +
+                    ">" + escapeHtml(option.label) + "</option>"
+                  );
+                })
+                .join("") +
+              "</select></div>"
+            );
+          })
+          .filter(Boolean);
+
+        if (fields.length === 0) {
+          host.innerHTML = "";
+          return;
+        }
+        const hasActive = Object.keys(active).some(function (key) {
+          return Boolean(active[key]);
+        });
+        host.innerHTML =
+          fields.join("") +
+          (hasActive
+            ? "<button class='btn-soft' onclick='resetFilters(\\"" + entity +
+              "\\")'>Clear filters</button>"
+            : "");
+      }
+
+      function setFilter(entity, column, value) {
+        const filters = tableFilters[entity] || (tableFilters[entity] = {});
+        if (value) {
+          filters[column] = value;
+        } else {
+          delete filters[column];
+        }
+        renderFilterBar(entity);
+        applyTableView(entity);
+      }
+
+      function resetFilters(entity) {
+        tableFilters[entity] = {};
+        const search = document.getElementById(entity + "Search");
+        if (search) {
+          search.value = "";
+        }
+        renderFilterBar(entity);
+        applyTableView(entity);
+      }
+
+      function refreshTableChrome(entity) {
+        renderTableHead(entity);
+        renderFilterBar(entity);
       }
 
       const entityConfig = {
@@ -1592,6 +1954,7 @@ export class AdminUiController {
         try {
           const data = await request("GET", cfg.path);
           tableCache[entity] = Array.isArray(data) ? data : data ? [data] : [];
+          refreshTableChrome(entity);
           applyFilter(entity);
           setStatus(true, cfg.label + " loaded");
         } catch (e) {
@@ -1715,6 +2078,7 @@ export class AdminUiController {
         try {
           const data = await request("GET", "/auth/users");
           usersCache = Array.isArray(data) ? data : [];
+          refreshTableChrome("users");
           applyUsersFilter();
           setStatus(true, "Users loaded");
         } catch (e) {
@@ -1726,9 +2090,9 @@ export class AdminUiController {
         const input = document.getElementById("usersSearch");
         const query = input ? input.value.trim() : "";
         const rows = usersCache.filter(function (u) {
-          return matchesQuery(u, query);
+          return matchesQuery(u, query) && matchesFilters("users", u);
         });
-        renderUsers(rows);
+        renderUsers(sortRows("users", rows));
       }
 
       function renderUsers(data) {
@@ -1832,6 +2196,7 @@ export class AdminUiController {
 
       function renderEventsCatalog(data) {
         catalogCache = Array.isArray(data) ? data : [];
+        refreshTableChrome(CATALOG_TABLE);
         applyCatalogFilter({ skipSync: true });
       }
 
@@ -1868,9 +2233,9 @@ export class AdminUiController {
         const input = document.getElementById("eventsCatalogSearch");
         const query = input ? input.value.trim() : "";
         const rows = catalogCache.filter(function (item) {
-          return matchesQuery(item, query);
+          return matchesQuery(item, query) && matchesFilters(CATALOG_TABLE, item);
         });
-        renderCatalogRows(rows);
+        renderCatalogRows(sortRows(CATALOG_TABLE, rows));
       }
 
       function renderCatalogRows(data) {
@@ -2764,6 +3129,10 @@ export class AdminUiController {
         if (!currentUser) {
           return;
         }
+        [CATALOG_TABLE, "events", "promos", "referrals", "referred", "users"]
+          .forEach(function (entity) {
+            renderTableHead(entity);
+          });
         await loadEventsCatalog();
         listItems("events");
         listItems("promos");
