@@ -174,6 +174,41 @@ export class ReferralController {
   }
 
   @InternalApi()
+  @ApiOperation({
+    summary:
+      "Check EventHub booking history for one referred user and store whether they were already a customer"
+  })
+  @ApiOkResponse({ schema: referredSchema })
+  @ApiNotFoundResponse({ schema: apiErrorSchema })
+  @Roles("Admin")
+  @Post("referred/:referredId/booking-check")
+  checkReferredBookingHistory(
+    @Param("referredId", ParseIntPipe) referredId: number
+  ) {
+    return this.referralService.checkReferredBookingHistory(referredId);
+  }
+
+  @InternalApi()
+  @ApiOperation({
+    summary: "Run the booking history check for all referred users never checked"
+  })
+  @ApiOkResponse({
+    schema: {
+      type: "object",
+      properties: {
+        pending: { type: "number" },
+        checked: { type: "number" },
+        failed: { type: "number" }
+      }
+    }
+  })
+  @Roles("Admin")
+  @Post("referred/booking-check")
+  checkPendingReferredBookingHistory() {
+    return this.referralService.checkPendingReferredBookingHistory();
+  }
+
+  @InternalApi()
   @ApiOperation({ summary: "Get all generated promos" })
   @ApiOkResponse({ schema: { type: "array", items: promoSchema } })
   @Get("promos")

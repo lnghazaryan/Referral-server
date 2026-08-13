@@ -29,10 +29,19 @@ type PeriodBucket = {
   signupPromos: number;
   rewardPromos: number;
   usedPromos: number;
+  newCustomers: number;
+  existingCustomers: number;
+  uncheckedCustomers: number;
 };
 
 type CountRow = { period: Date | string; value: number | string | null };
 type RevenueRow = { period: Date | string; value: number | string | null };
+type CustomerTypeRow = {
+  period: Date | string;
+  newCustomers: number | string | null;
+  existingCustomers: number | string | null;
+  uncheckedCustomers: number | string | null;
+};
 
 @Injectable()
 export class AdminService {
@@ -356,6 +365,10 @@ export class AdminService {
     const truncReferred = sql`to_char(date_trunc(${sql.raw(`'${truncUnit}'`)}, ${referred.createdAt} AT TIME ZONE ${sql.raw(`'${ARMENIA_TIMEZONE}'`)}), 'YYYY-MM-DD')`;
     const truncPromos = sql`to_char(date_trunc(${sql.raw(`'${truncUnit}'`)}, ${promos.createdAt} AT TIME ZONE ${sql.raw(`'${ARMENIA_TIMEZONE}'`)}), 'YYYY-MM-DD')`;
 
+    const newCustomerCount = sql<number>`count(*) filter (where ${referred.isNewCustomer} is true)`;
+    const existingCustomerCount = sql<number>`count(*) filter (where ${referred.isNewCustomer} is false)`;
+    const uncheckedCustomerCount = sql<number>`count(*) filter (where ${referred.isNewCustomer} is null)`;
+
     const [
       referrerRows,
       referredRows,
@@ -364,6 +377,7 @@ export class AdminService {
       signupPromoRows,
       rewardPromoRows,
       usedPromoRows,
+      customerTypeRows,
       totalsReferrers,
       totalsReferred,
       totalsPaid,
@@ -371,7 +385,8 @@ export class AdminService {
       totalsSignupPromos,
       totalsRewardPromos,
       totalsUsedPromos,
-      totalsAllPromos
+      totalsAllPromos,
+      totalsCustomerTypes
     ] = await Promise.all([
       this.databaseService.db
         .select({
@@ -467,6 +482,17 @@ export class AdminService {
         .groupBy(truncPromos)
         .orderBy(truncPromos),
       this.databaseService.db
+        .select({
+          period: truncReferred.as("period"),
+          newCustomers: newCustomerCount,
+          existingCustomers: existingCustomerCount,
+          uncheckedCustomers: uncheckedCustomerCount
+        })
+        .from(referred)
+        .where(and(gte(referred.createdAt, from), lte(referred.createdAt, to)))
+        .groupBy(truncReferred)
+        .orderBy(truncReferred),
+      this.databaseService.db
         .select({ value: count() })
         .from(referrals)
         .where(and(gte(referrals.createdAt, from), lte(referrals.createdAt, to))),
@@ -529,21 +555,27 @@ export class AdminService {
       this.databaseService.db
         .select({ value: count() })
         .from(promos)
-        .where(and(gte(promos.createdAt, from), lte(promos.createdAt, to)))
+        .where(and(gte(promos.createdAt, from), lte(promos.createdAt, to))),
+      this.databaseService.db
+        .select({
+          newCustomers: newCustomerCount,
+          existingCustomers: existingCustomerCount,
+          uncheckedCustomers: uncheckedCustomerCount
+        })
+        .from(referred)
+        .where(and(gte(referred.createdAt, from), lte(referred.createdAt, to)))
     ]);
 
-    const series = this.buildAnalyticsSeries(
-      granularity,
-      from,
-      to,
-      referrerRows as CountRow[],
-      referredRows as CountRow[],
-      paidRows as CountRow[],
-      revenueRows as RevenueRow[],
-      signupPromoRows as CountRow[],
-      rewardPromoRows as CountRow[],
-      usedPromoRows as CountRow[]
-    );
+    const series = this.buildAnalyticsSeries(granularity, from, to, {
+      referrers: referrerRows as CountRow[],
+      referred: referredRows as CountRow[],
+      paid: paidRows as CountRow[],
+      revenue: revenueRows as RevenueRow[],
+      signupPromos: signupPromoRows as CountRow[],
+      rewardPromos: rewardPromoRows as CountRow[],
+      usedPromos: usedPromoRows as CountRow[],
+      customerTypes: customerTypeRows as CustomerTypeRow[]
+    });
 
     const referrersTotal = Number(totalsReferrers[0]?.value ?? 0);
     const referredTotal = Number(totalsReferred[0]?.value ?? 0);
@@ -553,6 +585,15 @@ export class AdminService {
     const rewardPromosTotal = Number(totalsRewardPromos[0]?.value ?? 0);
     const usedPromosTotal = Number(totalsUsedPromos[0]?.value ?? 0);
     const allPromosTotal = Number(totalsAllPromos[0]?.value ?? 0);
+    const newCustomersTotal = Number(totalsCustomerTypes[0]?.newCustomers ?? 0);
+    const existingCustomersTotal = Number(
+      totalsCustomerTypes[0]?.existingCustomers ?? 0
+    );
+    const uncheckedCustomersTotal = Number(
+      totalsCustomerTypes[0]?.uncheckedCustomers ?? 0
+    );
+    // Percentages only count users whose booking history was actually checked.
+    const checkedCustomersTotal = newCustomersTotal + existingCustomersTotal;
 
     return {
       granularity,
@@ -573,6 +614,19 @@ export class AdminService {
         promoRedemptionRate:
           allPromosTotal > 0
             ? Math.round((usedPromosTotal / allPromosTotal) * 1000) / 10
+            : 0,
+        newCustomers: newCustomersTotal,
+        existingCustomers: existingCustomersTotal,
+        uncheckedCustomers: uncheckedCustomersTotal,
+        newCustomerRate:
+          checkedCustomersTotal > 0
+            ? Math.round((newCustomersTotal / checkedCustomersTotal) * 1000) / 10
+            : 0,
+        existingCustomerRate:
+          checkedCustomersTotal > 0
+            ? Math.round(
+                (existingCustomersTotal / checkedCustomersTotal) * 1000
+              ) / 10
             : 0
       },
       series
@@ -612,21 +666,42 @@ export class AdminService {
     granularity: AnalyticsGranularity,
     from: Date,
     to: Date,
-    referrerRows: CountRow[],
-    referredRows: CountRow[],
-    paidRows: CountRow[],
-    revenueRows: RevenueRow[],
-    signupPromoRows: CountRow[],
-    rewardPromoRows: CountRow[],
-    usedPromoRows: CountRow[]
+    rows: {
+      referrers: CountRow[];
+      referred: CountRow[];
+      paid: CountRow[];
+      revenue: RevenueRow[];
+      signupPromos: CountRow[];
+      rewardPromos: CountRow[];
+      usedPromos: CountRow[];
+      customerTypes: CustomerTypeRow[];
+    }
   ): PeriodBucket[] {
-    const referrersMap = this.toPeriodMap(referrerRows);
-    const referredMap = this.toPeriodMap(referredRows);
-    const paidMap = this.toPeriodMap(paidRows);
-    const revenueMap = this.toPeriodMap(revenueRows);
-    const signupMap = this.toPeriodMap(signupPromoRows);
-    const rewardMap = this.toPeriodMap(rewardPromoRows);
-    const usedMap = this.toPeriodMap(usedPromoRows);
+    const referrersMap = this.toPeriodMap(rows.referrers);
+    const referredMap = this.toPeriodMap(rows.referred);
+    const paidMap = this.toPeriodMap(rows.paid);
+    const revenueMap = this.toPeriodMap(rows.revenue);
+    const signupMap = this.toPeriodMap(rows.signupPromos);
+    const rewardMap = this.toPeriodMap(rows.rewardPromos);
+    const usedMap = this.toPeriodMap(rows.usedPromos);
+    const newCustomersMap = this.toPeriodMap(
+      rows.customerTypes.map((row) => ({
+        period: row.period,
+        value: row.newCustomers
+      }))
+    );
+    const existingCustomersMap = this.toPeriodMap(
+      rows.customerTypes.map((row) => ({
+        period: row.period,
+        value: row.existingCustomers
+      }))
+    );
+    const uncheckedCustomersMap = this.toPeriodMap(
+      rows.customerTypes.map((row) => ({
+        period: row.period,
+        value: row.uncheckedCustomers
+      }))
+    );
 
     const periods = this.enumeratePeriods(granularity, from, to);
     return periods.map((periodDate) => {
@@ -640,7 +715,10 @@ export class AdminService {
         revenue: revenueMap.get(key) ?? 0,
         signupPromos: signupMap.get(key) ?? 0,
         rewardPromos: rewardMap.get(key) ?? 0,
-        usedPromos: usedMap.get(key) ?? 0
+        usedPromos: usedMap.get(key) ?? 0,
+        newCustomers: newCustomersMap.get(key) ?? 0,
+        existingCustomers: existingCustomersMap.get(key) ?? 0,
+        uncheckedCustomers: uncheckedCustomersMap.get(key) ?? 0
       };
     });
   }

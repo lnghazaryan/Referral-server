@@ -1,5 +1,6 @@
 import {
   boolean,
+  integer,
   numeric,
   pgTable,
   serial,
@@ -35,6 +36,17 @@ export const referred = pgTable(
     eventId: varchar("event_id", { length: 36 }),
     hasPayment: boolean("has_payment").notNull().default(false),
     buyPrice: numeric("buy_price", { precision: 12, scale: 2 }),
+    /**
+     * EventHub booking history snapshot. `null` means the check never ran:
+     * new referred users are checked automatically on creation, older rows
+     * are checked on demand from the admin panel.
+     */
+    isNewCustomer: boolean("is_new_customer"),
+    /** Paid EventHub bookings made before this user joined the program. */
+    priorBookingCount: integer("prior_booking_count"),
+    totalBookingCount: integer("total_booking_count"),
+    firstBookingDate: timestamp("first_booking_date", { withTimezone: true }),
+    bookingCheckedAt: timestamp("booking_checked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow()

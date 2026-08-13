@@ -616,6 +616,38 @@ export class AdminUiController {
         font-weight: 700;
         color: var(--text);
       }
+      .ratio-bar {
+        display: flex;
+        height: 16px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #f1f5f9;
+      }
+      .ratio-new { background: linear-gradient(90deg, #34d399, #10b981); }
+      .ratio-existing { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+      .ratio-legend {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+        font-size: 12.5px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .ratio-legend .dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-right: 6px;
+      }
+      .dot-new { background: #10b981; }
+      .dot-existing { background: #f59e0b; }
+      .small-muted {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 600;
+      }
       @media (max-width: 980px) {
         .analytics-metrics {
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -891,6 +923,7 @@ export class AdminUiController {
             <div class="top-actions">
               <div class="toolbar">
                 <button class="btn-soft" onclick="listItems('referred')">Refresh list</button>
+                <button class="btn-soft" id="checkPendingBookingsBtn" onclick="checkPendingBookings()">Check unchecked users</button>
                 <button class="btn-add" onclick="openCreateForm('referred')">Add referred</button>
               </div>
               <div class="toolbar">
@@ -899,7 +932,12 @@ export class AdminUiController {
                 <button class="btn-soft" onclick="getById('referred')">Find</button>
               </div>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>referredId</th><th>email</th><th>phone</th><th>referralCode</th><th>eventId</th><th>referrerEmail</th><th>referrerPhone</th><th>hasPayment</th><th>buyPrice</th></tr></thead><tbody id="referredRows"><tr><td colspan="9" class="empty">No data yet</td></tr></tbody></table></div>
+            <div class="content-intro">
+              <b>Customer</b> shows whether the user already had a paid EventHub
+              booking before joining. New sign-ups are checked automatically;
+              older records show a <b>Check</b> button.
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>referredId</th><th>email</th><th>phone</th><th>referralCode</th><th>eventId</th><th>referrerEmail</th><th>referrerPhone</th><th>hasPayment</th><th>buyPrice</th><th>customer</th><th>createdAt</th><th>actions</th></tr></thead><tbody id="referredRows"><tr><td colspan="12" class="empty">No data yet</td></tr></tbody></table></div>
           </section>
 
           <section class="entity" data-entity="users">
@@ -1100,10 +1138,13 @@ export class AdminUiController {
             "referrerEmail",
             "referrerPhone",
             "hasPayment",
-            "buyPrice"
+            "buyPrice",
+            "customerType",
+            "createdAt"
           ],
           createFields: [],
-          readOnlyCreate: true
+          readOnlyCreate: true,
+          bookingCheck: true
         },
         users: {
           label: "Users",
@@ -1339,7 +1380,10 @@ export class AdminUiController {
         const cfg = entityConfig[entity];
         const target = document.getElementById(entity + "Rows");
         const rows = Array.isArray(data) ? data : [data];
-        const colCount = cfg.columns.length + (cfg.resend ? 1 : 0);
+        const colCount =
+          cfg.columns.length +
+          (cfg.resend ? 1 : 0) +
+          (cfg.bookingCheck ? 1 : 0);
         if (!rows.length || (rows.length === 1 && (!rows[0] || Object.keys(rows[0]).length === 0))) {
           target.innerHTML = "<tr><td colspan='" + colCount + "' class='empty'>No records found</td></tr>";
           return;
@@ -1347,12 +1391,19 @@ export class AdminUiController {
         const isAdmin = currentUser && currentUser.role === "Admin";
         target.innerHTML = rows.map(function (row) {
           let cells = cfg.columns.map(function (col) {
-            return "<td>" + formatCell(col, row[col]) + "</td>";
+            return "<td>" + formatCell(col, row[col], row) + "</td>";
           }).join("");
           if (cfg.resend) {
             cells += "<td>" + (row.id != null
               ? "<button class='btn-soft' " + (isAdmin ? "" : "disabled ") +
                 "onclick='resendPromo(" + row.id + ")'>Resend email</button>"
+              : "") + "</td>";
+          }
+          if (cfg.bookingCheck) {
+            cells += "<td>" + (row.referredId != null
+              ? "<button class='btn-soft' " + (isAdmin ? "" : "disabled ") +
+                "onclick='checkReferredBookings(" + row.referredId + ")'>" +
+                (row.bookingCheckedAt ? "Re-check" : "Check") + "</button>"
               : "") + "</td>";
           }
           return "<tr>" + cells + "</tr>";
@@ -1363,7 +1414,51 @@ export class AdminUiController {
         return "<span class='badge " + cls + "'>" + text + "</span>";
       }
 
-      function formatCell(col, val) {
+      function formatDateTime(val) {
+        if (val === null || val === undefined || val === "") return "";
+        const date = new Date(val);
+        if (Number.isNaN(date.getTime())) return String(val);
+        return date.toLocaleString("en-GB", {
+          year: "numeric",
+          month: "short",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+      }
+
+      function formatCustomerType(row) {
+        if (!row || row.isNewCustomer === null || row.isNewCustomer === undefined) {
+          return badge("badge-slate", "Not checked");
+        }
+        const checkedAt = row.bookingCheckedAt
+          ? " · checked " + formatDateTime(row.bookingCheckedAt)
+          : "";
+        if (row.isNewCustomer === true) {
+          return (
+            "<span title='No paid booking before joining" + checkedAt + "'>" +
+            badge("badge-green", "New") +
+            "</span>"
+          );
+        }
+        const prior = Number(row.priorBookingCount || 0);
+        const first = row.firstBookingDate
+          ? " · first " + formatDateTime(row.firstBookingDate)
+          : "";
+        return (
+          "<span title='" + prior + " paid booking(s) before joining" + first + checkedAt + "'>" +
+          badge("badge-amber", "Existing" + (prior > 0 ? " (" + prior + ")" : "")) +
+          "</span>"
+        );
+      }
+
+      function formatCell(col, val, row) {
+        if (col === "customerType") {
+          return formatCustomerType(row);
+        }
+        if (col === "createdAt" || col === "bookingCheckedAt" || col === "firstBookingDate") {
+          return formatDateTime(val);
+        }
         if (col === "isUsed" || col === "hasPayment") {
           return val === true || val === "true"
             ? badge("badge-green", "Yes")
@@ -1412,6 +1507,62 @@ export class AdminUiController {
           setStatus(true, "Email resent to " + (data && data.email ? data.email : "recipient"));
         } catch (e) {
           setStatus(false, String(e));
+        }
+      }
+
+      async function checkReferredBookings(referredId) {
+        if (!currentUser || currentUser.role !== "Admin") {
+          setStatus(false, "Only Admin can run the booking check.");
+          return;
+        }
+        setStatus(true, "Checking EventHub bookings…");
+        try {
+          const data = await request(
+            "POST",
+            "/referred/" + referredId + "/booking-check"
+          );
+          const isNew = data && data.isNewCustomer === true;
+          setStatus(
+            true,
+            "referredId " + referredId + ": " +
+              (isNew
+                ? "new customer (no bookings before joining)"
+                : "already had " + Number((data && data.priorBookingCount) || 0) +
+                  " booking(s) before joining")
+          );
+          await listItems("referred");
+          analyticsCache = null;
+        } catch (e) {
+          setStatus(false, String(e));
+        }
+      }
+
+      async function checkPendingBookings() {
+        if (!currentUser || currentUser.role !== "Admin") {
+          setStatus(false, "Only Admin can run the booking check.");
+          return;
+        }
+        const btn = document.getElementById("checkPendingBookingsBtn");
+        if (btn) {
+          btn.disabled = true;
+        }
+        setStatus(true, "Checking unchecked referred users…");
+        try {
+          const data = await request("POST", "/referred/booking-check");
+          setStatus(
+            true,
+            "Checked " + Number((data && data.checked) || 0) + " of " +
+              Number((data && data.pending) || 0) + " user(s)" +
+              (data && data.failed ? ", " + data.failed + " failed" : "")
+          );
+          await listItems("referred");
+          analyticsCache = null;
+        } catch (e) {
+          setStatus(false, String(e));
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+          }
         }
       }
 
@@ -2360,6 +2511,21 @@ export class AdminUiController {
             hint: "Sum of paid buyPrice"
           },
           {
+            label: "New customers",
+            value: formatMetricNumber(totals.newCustomers),
+            hint: (totals.newCustomerRate || 0) + "% of checked users"
+          },
+          {
+            label: "Already had bookings",
+            value: formatMetricNumber(totals.existingCustomers),
+            hint: (totals.existingCustomerRate || 0) + "% of checked users"
+          },
+          {
+            label: "Not checked",
+            value: formatMetricNumber(totals.uncheckedCustomers),
+            hint: "Run the check in Referred"
+          },
+          {
             label: "Signup promos",
             value: formatMetricNumber(totals.signupPromos),
             hint: "Issued to referred users"
@@ -2373,11 +2539,6 @@ export class AdminUiController {
             label: "Promos used",
             value: formatMetricNumber(totals.usedPromos),
             hint: (totals.promoRedemptionRate || 0) + "% redemption"
-          },
-          {
-            label: "Periods",
-            value: formatMetricNumber(series.length),
-            hint: (data.granularity || analyticsGranularity) + " buckets"
           }
         ];
 
@@ -2401,6 +2562,23 @@ export class AdminUiController {
             })
             .join("") +
           "</div>";
+
+        const newRate = Number(totals.newCustomerRate || 0);
+        const existingRate = Number(totals.existingCustomerRate || 0);
+        const splitHtml =
+          newRate + existingRate === 0
+            ? ""
+            : "<div class='analytics-chart'><h3>New vs already booked before</h3>" +
+              "<div class='ratio-bar'>" +
+              "<div class='ratio-new' style='width:" + newRate + "%' title='New: " + newRate + "%'></div>" +
+              "<div class='ratio-existing' style='width:" + existingRate + "%' title='Already had bookings: " + existingRate + "%'></div>" +
+              "</div>" +
+              "<div class='ratio-legend'>" +
+              "<span><i class='dot dot-new'></i>New " + newRate + "% (" +
+              formatMetricNumber(totals.newCustomers) + ")</span>" +
+              "<span><i class='dot dot-existing'></i>Already had bookings " +
+              existingRate + "% (" + formatMetricNumber(totals.existingCustomers) + ")</span>" +
+              "</div></div>";
 
         const chartHtml =
           series.length === 0
@@ -2438,13 +2616,21 @@ export class AdminUiController {
         const tableHtml =
           "<div class='table-wrap'><table><thead><tr>" +
           "<th>Period</th><th>Referrers</th><th>Referred</th>" +
-          "<th>Paid</th><th>Revenue</th><th>Signup promos</th>" +
-          "<th>Reward promos</th><th>Used promos</th>" +
+          "<th>Paid</th><th>Revenue</th><th>New</th>" +
+          "<th>Had bookings</th><th>Not checked</th>" +
+          "<th>Signup promos</th><th>Reward promos</th><th>Used promos</th>" +
           "</tr></thead><tbody>" +
           (series.length === 0
-            ? "<tr><td colspan='8' class='empty'>No rows</td></tr>"
+            ? "<tr><td colspan='11' class='empty'>No rows</td></tr>"
             : series
                 .map(function (row) {
+                  const checked =
+                    Number(row.newCustomers || 0) +
+                    Number(row.existingCustomers || 0);
+                  const newPct =
+                    checked > 0
+                      ? Math.round((Number(row.newCustomers || 0) / checked) * 1000) / 10
+                      : 0;
                   return (
                     "<tr>" +
                     "<td>" +
@@ -2463,6 +2649,18 @@ export class AdminUiController {
                     formatMoney(row.revenue) +
                     "</td>" +
                     "<td>" +
+                    formatMetricNumber(row.newCustomers) +
+                    (checked > 0
+                      ? " <span class='small-muted'>" + newPct + "%</span>"
+                      : "") +
+                    "</td>" +
+                    "<td>" +
+                    formatMetricNumber(row.existingCustomers) +
+                    "</td>" +
+                    "<td>" +
+                    formatMetricNumber(row.uncheckedCustomers) +
+                    "</td>" +
+                    "<td>" +
                     formatMetricNumber(row.signupPromos) +
                     "</td>" +
                     "<td>" +
@@ -2477,7 +2675,7 @@ export class AdminUiController {
                 .join("")) +
           "</tbody></table></div>";
 
-        root.innerHTML = metricsHtml + chartHtml + tableHtml;
+        root.innerHTML = metricsHtml + splitHtml + chartHtml + tableHtml;
       }
 
       async function loadAnalytics(force) {

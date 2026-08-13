@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException
 } from "@nestjs/common";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   buildEventHubRelativePath,
   EventUrlSlugs
@@ -20,6 +20,7 @@ import {
   ExternalPromoResponse,
   PromoExternalService
 } from "../external/promo-external.service";
+import { CustomerBookingsService } from "../external/eventhub-admin/customer-bookings.service";
 import { MailSenderService } from "../external/mail-sender.service";
 import { DatabaseService } from "../database/database.service";
 import { EventsMaintenanceService } from "../events/events-maintenance.service";
@@ -40,7 +41,8 @@ export class ReferralService {
     private readonly databaseService: DatabaseService,
     private readonly promoExternalService: PromoExternalService,
     private readonly mailSenderService: MailSenderService,
-    private readonly eventsMaintenanceService: EventsMaintenanceService
+    private readonly eventsMaintenanceService: EventsMaintenanceService,
+    private readonly customerBookingsService: CustomerBookingsService
   ) {}
 
   async listReferrals() {
@@ -154,6 +156,8 @@ export class ReferralService {
       `createReferred: referred user stored referredId=${createdReferred.referredId} email=${dto.email}`
     );
 
+    const referredWithHistory = await this.syncBookingHistory(createdReferred);
+
     const promo = await this.storePromo(
       createdReferred.referredId,
       PROMO_PURPOSE_SIGNUP,
@@ -174,7 +178,7 @@ export class ReferralService {
     this.logger.log(
       `createReferred: done referredId=${createdReferred.referredId} promoCode=${promo.code}`
     );
-    return { referred: createdReferred, promo };
+    return { referred: referredWithHistory, promo };
   }
 
   async updatePromoIsUsed(promoId: number, isUsed: boolean) {
@@ -294,11 +298,16 @@ export class ReferralService {
       `completeReferredPayment: updated referredId=${updatedReferred.referredId} hasPayment=${eventInList}`
     );
 
+    // Rows created before booking history tracking never got a snapshot.
+    const referredWithHistory = updatedReferred.bookingCheckedAt
+      ? updatedReferred
+      : await this.syncBookingHistory(updatedReferred);
+
     if (!external) {
       this.logger.log(
         `completeReferredPayment: event not in list, no referrer promo generated referredId=${updatedReferred.referredId}`
       );
-      return { referred: updatedReferred, promo: null };
+      return { referred: referredWithHistory, promo: null };
     }
 
     const promo = await this.storePromo(
@@ -321,7 +330,7 @@ export class ReferralService {
     this.logger.log(
       `completeReferredPayment: done referredId=${updatedReferred.referredId} promoCode=${promo.code}`
     );
-    return { referred: updatedReferred, promo };
+    return { referred: referredWithHistory, promo };
   }
 
   // Referred user paid without signing up first. When the paid event is not in
@@ -349,7 +358,10 @@ export class ReferralService {
       this.logger.log(
         `completeReferredPayment: event not in list, stored pending referred referredId=${pendingReferred.referredId} (no promo, eventId=null, hasPayment=false)`
       );
-      return { referred: pendingReferred, promo: null };
+      return {
+        referred: await this.syncBookingHistory(pendingReferred),
+        promo: null
+      };
     }
 
     // Create all external promos BEFORE persisting. If any fails, no user is
@@ -371,6 +383,8 @@ export class ReferralService {
     this.logger.log(
       `completeReferredPayment: created new referred referredId=${createdReferred.referredId} hasPayment=true`
     );
+
+    const referredWithHistory = await this.syncBookingHistory(createdReferred);
 
     const referredPromo = await this.storePromo(
       createdReferred.referredId,
@@ -409,7 +423,110 @@ export class ReferralService {
     this.logger.log(
       `completeReferredPayment: done referredId=${createdReferred.referredId} rewardPromoCode=${rewardPromo.code}`
     );
-    return { referred: createdReferred, promo: rewardPromo };
+    return { referred: referredWithHistory, promo: rewardPromo };
+  }
+
+  /**
+   * Looks up the user's EventHub bookings and stores whether they had already
+   * paid for something before joining the referral program. Runs automatically
+   * for new referred users; existing rows are checked on demand from admin.
+   */
+  async checkReferredBookingHistory(referredId: number) {
+    const [existing] = await this.databaseService.db
+      .select()
+      .from(referred)
+      .where(eq(referred.referredId, referredId))
+      .limit(1);
+
+    if (!existing) {
+      throw new NotFoundException("Referred user not found.");
+    }
+
+    return this.applyBookingHistory(existing);
+  }
+
+  /** Fills in the snapshot for referred users that were never checked. */
+  async checkPendingReferredBookingHistory(limit = 100) {
+    const pending = await this.databaseService.db
+      .select()
+      .from(referred)
+      .where(isNull(referred.bookingCheckedAt))
+      .limit(limit);
+
+    let checked = 0;
+    let failed = 0;
+
+    // Small batches keep the EventHub API load reasonable while still being
+    // fast enough for an admin request covering dozens of users.
+    const BATCH_SIZE = 5;
+    for (let index = 0; index < pending.length; index += BATCH_SIZE) {
+      const batch = pending.slice(index, index + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((row) => this.applyBookingHistory(row))
+      );
+
+      results.forEach((result, position) => {
+        if (result.status === "fulfilled") {
+          checked += 1;
+          return;
+        }
+        failed += 1;
+        const row = batch[position];
+        this.logger.error(
+          `checkPendingReferredBookingHistory: FAILED referredId=${row.referredId} email=${row.email}. ${
+            result.reason instanceof Error
+              ? result.reason.message
+              : String(result.reason)
+          }`
+        );
+      });
+    }
+
+    this.logger.log(
+      `checkPendingReferredBookingHistory: pending=${pending.length} checked=${checked} failed=${failed}`
+    );
+    return { pending: pending.length, checked, failed };
+  }
+
+  /**
+   * Best-effort variant used on the signup/payment paths: a failed EventHub
+   * lookup must never block promo creation, the row simply stays unchecked.
+   */
+  private async syncBookingHistory(row: typeof referred.$inferSelect) {
+    try {
+      return await this.applyBookingHistory(row);
+    } catch (error) {
+      this.logger.error(
+        `syncBookingHistory: FAILED referredId=${row.referredId} email=${row.email}. ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      return row;
+    }
+  }
+
+  private async applyBookingHistory(row: typeof referred.$inferSelect) {
+    const summary = await this.customerBookingsService.getBookingSummary(
+      row.email,
+      row.createdAt
+    );
+
+    const [updated] = await this.databaseService.db
+      .update(referred)
+      .set({
+        isNewCustomer: summary.isNewCustomer,
+        priorBookingCount: summary.priorBookingCount,
+        totalBookingCount: summary.totalBookingCount,
+        firstBookingDate: summary.firstBookingDate,
+        bookingCheckedAt: new Date()
+      })
+      .where(eq(referred.referredId, row.referredId))
+      .returning();
+
+    this.logger.log(
+      `applyBookingHistory: referredId=${row.referredId} email=${row.email} isNewCustomer=${summary.isNewCustomer} prior=${summary.priorBookingCount} total=${summary.totalBookingCount}`
+    );
+    return updated;
   }
 
   async updateReferredHasPayment(referredId: number, hasPayment: boolean) {
@@ -451,6 +568,11 @@ export class ReferralService {
         eventId: referred.eventId,
         hasPayment: referred.hasPayment,
         buyPrice: referred.buyPrice,
+        isNewCustomer: referred.isNewCustomer,
+        priorBookingCount: referred.priorBookingCount,
+        totalBookingCount: referred.totalBookingCount,
+        firstBookingDate: referred.firstBookingDate,
+        bookingCheckedAt: referred.bookingCheckedAt,
         createdAt: referred.createdAt,
         referrerId: referrals.referralId,
         referrerEmail: referrals.email,
@@ -470,6 +592,11 @@ export class ReferralService {
         eventId: referred.eventId,
         hasPayment: referred.hasPayment,
         buyPrice: referred.buyPrice,
+        isNewCustomer: referred.isNewCustomer,
+        priorBookingCount: referred.priorBookingCount,
+        totalBookingCount: referred.totalBookingCount,
+        firstBookingDate: referred.firstBookingDate,
+        bookingCheckedAt: referred.bookingCheckedAt,
         createdAt: referred.createdAt,
         referrerId: referrals.referralId,
         referrerEmail: referrals.email,

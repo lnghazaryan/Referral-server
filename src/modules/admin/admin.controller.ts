@@ -62,7 +62,12 @@ export class AdminController {
             signupPromos: { type: "number" },
             rewardPromos: { type: "number" },
             usedPromos: { type: "number" },
-            promoRedemptionRate: { type: "number" }
+            promoRedemptionRate: { type: "number" },
+            newCustomers: { type: "number" },
+            existingCustomers: { type: "number" },
+            uncheckedCustomers: { type: "number" },
+            newCustomerRate: { type: "number" },
+            existingCustomerRate: { type: "number" }
           }
         },
         series: {
@@ -78,7 +83,10 @@ export class AdminController {
               revenue: { type: "number" },
               signupPromos: { type: "number" },
               rewardPromos: { type: "number" },
-              usedPromos: { type: "number" }
+              usedPromos: { type: "number" },
+              newCustomers: { type: "number" },
+              existingCustomers: { type: "number" },
+              uncheckedCustomers: { type: "number" }
             }
           }
         }

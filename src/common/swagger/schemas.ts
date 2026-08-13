@@ -224,6 +224,22 @@ export const referredSchema = {
     },
     hasPayment: { type: "boolean", example: false },
     buyPrice: { type: "number", nullable: true, example: 15000 },
+    isNewCustomer: {
+      type: "boolean",
+      nullable: true,
+      example: true,
+      description:
+        "True when the user had no paid EventHub booking before joining. Null when the booking check never ran."
+    },
+    priorBookingCount: {
+      type: "number",
+      nullable: true,
+      example: 0,
+      description: "Paid EventHub bookings made before joining the program."
+    },
+    totalBookingCount: { type: "number", nullable: true, example: 3 },
+    firstBookingDate: { ...dateTimeSchema, nullable: true },
+    bookingCheckedAt: { ...dateTimeSchema, nullable: true },
     referrerId: { type: "number", example: 1 },
     referrerEmail: { type: "string", example: "owner@example.com" },
     referrerPhone: {
